@@ -1849,6 +1849,11 @@ export default function ProfileModal({
         style={currentBorderId !== "none" ? borderStyles : {}}
       >
         
+        {/* Background Effect Layer */}
+        {currentEffectClass && (
+          <div className={`absolute inset-0 pointer-events-none z-0 ${currentEffectClass}`} />
+        )}
+        
         {/* About Me Editor Modal */}
         {isEditingAbout && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -2646,7 +2651,7 @@ export default function ProfileModal({
 
         {/* Profile Content */}
         <div 
-          className={`pt-14 p-8 overflow-y-auto custom-scrollbar flex-1 ${targetUser.email === 'dev@gmail.com' && mode === 'view' && (!targetUser.profile_effect || targetUser.profile_effect === 'none') ? 'bg-blueprint-pattern' : currentEffectClass}`}
+          className={`pt-14 p-8 overflow-y-auto custom-scrollbar flex-1 relative z-10 ${targetUser.email === 'dev@gmail.com' && mode === 'view' && (!targetUser.profile_effect || targetUser.profile_effect === 'none') ? 'bg-blueprint-pattern' : ''}`}
         >
 
           <div className="mb-6">

@@ -1,41 +1,31 @@
 /**
- * Uploads a file to a free public cloud (Catbox) as a fallback if local backend fails.
+ * Uploads a file to a free public cloud (Catbox).
+ * Catbox supports up to 200MB and provides direct links (e.g. .mp3, .jpg).
  */
 async function uploadToCatbox(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('reqtype', 'fileupload');
   formData.append('fileToUpload', file);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds for cloud upload
-
-  try {
-    const res = await fetch('https://catbox.moe/user/api.php', {
-      method: 'POST',
-      body: formData,
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      throw new Error(`Catbox upload failed with status ${res.status}`);
-    }
-    
-    const url = await res.text();
-    if (!url.startsWith('http')) {
-      throw new Error('Invalid response from Catbox');
-    }
-    return url;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
+  // No short timeout, let it take the time it needs for 5MB+ files
+  const res = await fetch('https://catbox.moe/user/api.php', {
+    method: 'POST',
+    body: formData
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Catbox upload failed with status ${res.status}`);
   }
+  
+  const url = await res.text();
+  if (!url.startsWith('http')) {
+    throw new Error('Invalid response from Catbox: ' + url);
+  }
+  return url;
 }
 
 /**
- * Uploads a file to the local Express backend storage, falling back to Catbox, then base64.
- * Returns the public URL or base64 string.
+ * Uploads an image. Tries local backend first (fastest), then Catbox, then Base64.
  */
 export async function uploadImageToStorage(
   file: File,
@@ -46,16 +36,10 @@ export async function uploadImageToStorage(
   formData.append('file', file);
   
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    
     const res = await fetch('/api/upload', {
       method: 'POST',
-      body: formData,
-      signal: controller.signal
+      body: formData
     });
-    
-    clearTimeout(timeoutId);
     
     if (!res.ok) {
       throw new Error(`Upload failed with status ${res.status}`);
@@ -67,15 +51,13 @@ export async function uploadImageToStorage(
     console.warn("Local storage upload failed, trying Catbox cloud:", err);
     
     try {
-      const catboxUrl = await uploadToCatbox(file);
-      return catboxUrl;
+      return await uploadToCatbox(file);
     } catch (catboxErr) {
       console.warn("Catbox cloud upload failed, falling back to base64:", catboxErr);
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           if (typeof reader.result === 'string') {
-            // Skip compression for GIFs
             if (file.type === 'image/gif') {
               resolve(reader.result);
               return;
@@ -121,28 +103,26 @@ export async function uploadImageToStorage(
 }
 
 /**
- * Uploads an audio file to the local Express backend storage, falling back to Catbox.
- * Returns the public URL.
+ * Uploads an audio file directly to Catbox to ensure we get a persistent .mp3 link
+ * and to handle 5MB+ files without hitting local/base64 limits.
  */
 export async function uploadAudioToStorage(
   file: File,
   folder: string,
   fileName: string
 ): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-  
+  // Always try Catbox first for audio so it gets a persistent .mp3 link
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    return await uploadToCatbox(file);
+  } catch (err) {
+    console.warn("Catbox upload failed for audio, falling back to local server:", err);
+    const formData = new FormData();
+    formData.append('file', file);
     
     const res = await fetch('/api/upload', {
       method: 'POST',
-      body: formData,
-      signal: controller.signal
+      body: formData
     });
-    
-    clearTimeout(timeoutId);
     
     if (!res.ok) {
       throw new Error(`Upload failed with status ${res.status}`);
@@ -150,26 +130,5 @@ export async function uploadAudioToStorage(
     
     const result = await res.json();
     return result.data.path;
-  } catch (err) {
-    console.warn("Local storage upload failed for audio, trying Catbox cloud:", err);
-    
-    try {
-      const catboxUrl = await uploadToCatbox(file);
-      return catboxUrl;
-    } catch (catboxErr) {
-      console.warn("Catbox cloud upload failed, falling back to base64:", catboxErr);
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error("Failed to convert audio file to base64"));
-          }
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-    }
   }
 }

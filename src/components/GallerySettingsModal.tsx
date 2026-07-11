@@ -3,6 +3,8 @@ import { X, Upload, Trash2, Image as ImageIcon } from "lucide-react";
 import { UserProfile } from "../types";
 import { supabase } from "../lib/supabase";
 
+import { uploadImageToStorage } from "../lib/storage";
+
 interface GallerySettingsModalProps {
   user: UserProfile;
   onUpdateUser: (updates: Partial<UserProfile>) => void;
@@ -32,51 +34,9 @@ export default function GallerySettingsModal({ user, onUpdateUser, onClose }: Ga
 
     setIsUploading(true);
     try {
-      // Direct base64 conversion instead of using storage bucket
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            if (file.type === 'image/gif') {
-              resolve(reader.result);
-              return;
-            }
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 600;
-              const MAX_HEIGHT = 600;
-              let width = img.width;
-              let height = img.height;
-
-              if (width > height) {
-                if (width > MAX_WIDTH) {
-                  height *= MAX_WIDTH / width;
-                  width = MAX_WIDTH;
-                }
-              } else {
-                if (height > MAX_HEIGHT) {
-                  width *= MAX_HEIGHT / height;
-                  height = MAX_HEIGHT;
-                }
-              }
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx?.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.5));
-            };
-            img.onerror = () => reject(new Error("Failed to load image"));
-            img.src = reader.result;
-          } else {
-            reject(new Error("Failed to read file"));
-          }
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-
-      const updatedGallery = [...galleryImages, base64Data];
+      const url = await uploadImageToStorage(file, 'gallery', file.name);
+      
+      const updatedGallery = [...galleryImages, url];
 
       const { error } = await supabase
         .from("profiles")
