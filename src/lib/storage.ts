@@ -1,11 +1,5 @@
-import { supabase, app } from './supabase';
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-// Initialize Firebase Storage
-const storage = getStorage(app);
-
 /**
- * Uploads a file to Firebase Storage.
+ * Uploads a file to the local Express backend storage.
  * Returns the public URL.
  */
 export async function uploadImageToStorage(
@@ -13,25 +7,29 @@ export async function uploadImageToStorage(
   folder: string,
   fileName: string
 ): Promise<string> {
-  const cleanName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const filePath = `${folder}/${Date.now()}_${cleanName}`;
-
+  const formData = new FormData();
+  formData.append('file', file);
+  
   try {
-    const fileRef = ref(storage, filePath);
-    await uploadBytes(fileRef, file, {
-      contentType: file.type || 'image/jpeg',
-      cacheControl: 'public, max-age=31536000',
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
     });
-    const downloadURL = await getDownloadURL(fileRef);
-    return downloadURL;
+    
+    if (!res.ok) {
+      throw new Error(`Upload failed with status ${res.status}`);
+    }
+    
+    const result = await res.json();
+    return result.data.path;
   } catch (err) {
-    console.error("Firebase Storage failed:", err);
+    console.error("Local storage upload failed:", err);
     throw err;
   }
 }
 
 /**
- * Uploads an audio file to Firebase Storage.
+ * Uploads an audio file to the local Express backend storage.
  * Returns the public URL.
  */
 export async function uploadAudioToStorage(
@@ -39,20 +37,23 @@ export async function uploadAudioToStorage(
   folder: string,
   fileName: string
 ): Promise<string> {
-  const cleanName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const filePath = `${folder}/${Date.now()}_${cleanName}`;
-
+  const formData = new FormData();
+  formData.append('file', file);
+  
   try {
-    const fileRef = ref(storage, filePath);
-    await uploadBytes(fileRef, file, {
-      contentType: file.type || 'audio/mpeg',
-      cacheControl: 'public, max-age=31536000',
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
     });
-    const downloadURL = await getDownloadURL(fileRef);
-    return downloadURL;
+    
+    if (!res.ok) {
+      throw new Error(`Upload failed with status ${res.status}`);
+    }
+    
+    const result = await res.json();
+    return result.data.path;
   } catch (err) {
-    console.error("Firebase Storage failed for audio:", err);
+    console.error("Local storage upload failed for audio:", err);
     throw err;
   }
 }
-

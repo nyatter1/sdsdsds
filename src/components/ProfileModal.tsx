@@ -3366,7 +3366,7 @@ export default function ProfileModal({
                     <Music className={`w-8 h-8 mx-auto mb-2 ${isUploadingMusic ? "text-purple-400 animate-pulse" : "text-purple-400/70"}`} />
                     {isUploadingMusic ? (
                       <div className="space-y-1">
-                        <p className="text-xs font-bold text-purple-300">Uploading to cloud storage...</p>
+                        <p className="text-xs font-bold text-purple-300">Uploading file...</p>
                         <p className="text-[10px] text-purple-400/50">Saving file and creating direct link...</p>
                       </div>
                     ) : (
