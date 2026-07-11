@@ -5,7 +5,7 @@ import {
   MoreHorizontal, EyeOff, Trash2, Reply, Volume2, VolumeX,
   Bell, ShieldCheck, Sparkles, AlertTriangle, Eye, Check, Heart, Edit2, Camera,
   Palette, CreditCard, Star, Lock, Unlock, Coins, Hand, Type, Newspaper,
-  Vote, Gift
+  Vote, Gift, ArrowRightLeft, Dices
 } from "lucide-react";
 import { UserProfile, Message, OnlineUser, RANKS_INFO, mapDbRankToUserRank, UserRank, getLevelFromXp } from "../types";
 import ProfileModal, { getProfileBorderStyle } from "./ProfileModal";
@@ -26,6 +26,7 @@ import ProfileVisitorsModal from "./ProfileVisitorsModal";
 import ProfileDecorModal from "./ProfileDecorModal";
 import PollModal from "./PollModal";
 import GiftModal from "./GiftModal";
+import DiceModal from "./DiceModal";
 
 const getAssetUrl = (path: string) => {
   const base = (import.meta as any).env?.BASE_URL || "/";
@@ -114,6 +115,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
   const [activeDecisionNotif, setActiveDecisionNotif] = useState<any | null>(null);
   const [showPollModal, setShowPollModal] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
+  const [showDiceModal, setShowDiceModal] = useState(false);
 
   // Form states inside Admin Panel
   const [newRankKey, setNewRankKey] = useState("");
@@ -1600,6 +1602,146 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     }
   };
 
+  const renderDiceRoll = (msg: Message) => {
+    try {
+      const jsonStr = msg.text.replace('[DICE_ROLL]:', '').trim();
+      const rollData = JSON.parse(jsonStr);
+
+      const isDice = rollData.type === "dice";
+      
+      if (isDice) {
+        const { diceType, diceCount, results, total, critical } = rollData;
+        
+        let borderClass = "border-purple-500/30 bg-gradient-to-br from-[#120e24]/80 to-[#1e133d]/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]";
+        let titleColor = "text-purple-300";
+        let badgeBg = "bg-purple-500/20 text-purple-300 border-purple-500/20";
+        let badgeText = `🎲 Dice Roll`;
+        
+        if (critical === "hit") {
+          borderClass = "border-amber-500/50 bg-gradient-to-br from-amber-950/40 to-yellow-950/60 shadow-[0_0_20px_rgba(245,158,11,0.25)] animate-pulse-border";
+          titleColor = "text-amber-400";
+          badgeBg = "bg-amber-500/20 text-amber-300 border-amber-500/30";
+          badgeText = "✨ CRITICAL HIT!";
+        } else if (critical === "fail") {
+          borderClass = "border-rose-500/50 bg-gradient-to-br from-rose-950/40 to-red-950/60 shadow-[0_0_20px_rgba(244,63,94,0.25)]";
+          titleColor = "text-rose-400";
+          badgeBg = "bg-rose-500/20 text-rose-300 border-rose-500/30";
+          badgeText = "💀 CRITICAL FAIL!";
+        }
+
+        return (
+          <div className={`mt-2 border rounded-2xl p-4 max-w-sm w-full shadow-2xl transition-all duration-300 ${borderClass} text-white space-y-3`}>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${badgeBg}`}>
+                {badgeText}
+              </span>
+              <span className="text-xs font-mono font-bold text-purple-400">
+                {diceCount}d{diceType}
+              </span>
+            </div>
+
+            {/* Results Grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2 flex-wrap py-1">
+                {results.map((val: number, idx: number) => {
+                  let dieBg = "bg-purple-950/50 border-purple-500/30 text-white";
+                  if (diceType === 20 && val === 20) {
+                    dieBg = "bg-amber-500/25 border-amber-400 text-yellow-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-bounce";
+                  } else if (diceType === 20 && val === 1) {
+                    dieBg = "bg-rose-500/25 border-rose-500 text-rose-300";
+                  }
+                  
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`w-11 h-11 rounded-xl border flex flex-col items-center justify-center text-base font-black shadow-inner font-mono transition-transform hover:scale-105 duration-200 ${dieBg}`}
+                      title={`Die #${idx + 1}`}
+                    >
+                      <span>{val}</span>
+                      <span className="text-[7px] text-white/40 -mt-1 font-sans">d{diceType}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Total/Summary */}
+              <div className="flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                <span className="font-extrabold text-purple-300 uppercase tracking-wide">
+                  {diceCount > 1 ? "Dice Sum:" : "Result:"}
+                </span>
+                <div className={`flex items-center gap-1.5 font-black text-sm ${titleColor}`}>
+                  {diceCount > 1 && (
+                    <span className="text-xs text-purple-400 font-mono font-medium mr-1">
+                      ({results.join(" + ")}) =
+                    </span>
+                  )}
+                  <span className="font-mono text-base font-black">{total}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      } else {
+        // Coin flip rendering
+        const { coinResult } = rollData;
+        const isHeads = coinResult === "Heads";
+        
+        const borderClass = isHeads 
+          ? "border-amber-500/40 bg-gradient-to-br from-[#120e24]/80 to-[#271d10]/50 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+          : "border-indigo-500/40 bg-gradient-to-br from-[#120e24]/80 to-[#101935]/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]";
+          
+        const badgeBg = isHeads
+          ? "bg-amber-500/20 text-amber-300 border-amber-500/20"
+          : "bg-indigo-500/20 text-indigo-300 border-indigo-500/20";
+          
+        return (
+          <div className={`mt-2 border rounded-2xl p-4 max-w-sm w-full shadow-2xl transition-all duration-300 ${borderClass} text-white space-y-3`}>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${badgeBg}`}>
+                🪙 Coin Flip
+              </span>
+              <span className="text-xs font-mono font-bold text-purple-400">
+                1d2
+              </span>
+            </div>
+
+            {/* Coin Details */}
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-black border-2 shadow-lg transition-transform hover:rotate-180 duration-500 shrink-0 ${
+                  isHeads
+                    ? "bg-gradient-to-r from-amber-500 to-yellow-600 border-yellow-300 text-amber-950"
+                    : "bg-gradient-to-r from-indigo-500 to-cyan-600 border-cyan-300 text-indigo-950"
+                }`}>
+                  {isHeads ? "🪙" : "🛡️"}
+                </div>
+                <div>
+                  <p className="text-xs text-purple-400 font-bold uppercase tracking-wider">Flipped Outcome</p>
+                  <p className={`text-base font-black uppercase tracking-widest ${isHeads ? "text-amber-400" : "text-cyan-400"}`}>
+                    {coinResult}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className={`text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                  isHeads ? "bg-amber-500/10 text-amber-400" : "bg-cyan-500/10 text-cyan-400"
+                }`}>
+                  {isHeads ? "Lucky Heads" : "Steady Tails"}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    } catch (err) {
+      console.error("Dice roll render error:", err);
+      return <p className="text-xs text-red-400 font-bold">Failed to render Dice Roll.</p>;
+    }
+  };
+
   const renderGamble = (msg: Message) => {
     try {
       const jsonStr = msg.text.replace('[GAMBLE]:', '').trim();
@@ -2406,6 +2548,8 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                               renderGift(msg)
                             ) : msg.text?.startsWith('[GAMBLE]:') ? (
                               renderGamble(msg)
+                            ) : msg.text?.startsWith('[DICE_ROLL]:') ? (
+                              renderDiceRoll(msg)
                             ) : msg.text && (
                               <p 
                                 className={`text-sm text-purple-100 whitespace-pre-wrap break-words leading-relaxed ${getStyleClasses(getMessageStyle(msg, 'message').effect, getMessageStyle(msg, 'message').format)}`}
@@ -2638,6 +2782,38 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                       <div className="flex flex-col">
                         <span className="font-bold">Gift Box</span>
                         <span className="text-[9px] text-purple-400">Wrap a message (5 Rubies)</span>
+                      </div>
+                    </button>
+
+                    {/* Currency Exchange option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowConvertModal(true);
+                        setShowPlusOptions(false);
+                      }}
+                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
+                    >
+                      <ArrowRightLeft className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform shrink-0" />
+                      <div className="flex flex-col">
+                        <span className="font-bold">Exchange Office</span>
+                        <span className="text-[9px] text-purple-400">Convert Gold and Rubies</span>
+                      </div>
+                    </button>
+
+                    {/* Dice & Coin Roller option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDiceModal(true);
+                        setShowPlusOptions(false);
+                      }}
+                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
+                    >
+                      <Dices className="w-4 h-4 text-violet-400 group-hover:scale-110 transition-transform shrink-0 animate-pulse" />
+                      <div className="flex flex-col">
+                        <span className="font-bold">Dice & Coin Roller</span>
+                        <span className="text-[9px] text-purple-400">Roll dice or flip a coin</span>
                       </div>
                     </button>
                   </div>
@@ -3918,6 +4094,29 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
               if (error) throw error;
             } catch (err) {
               console.error("Failed to send gift box:", err);
+            }
+          }}
+        />
+      )}
+
+      {showDiceModal && (
+        <DiceModal
+          user={user}
+          onClose={() => setShowDiceModal(false)}
+          onSendRoll={async (msgText) => {
+            try {
+              const { error } = await supabase.from('messages').insert({
+                profile_id: user.id,
+                text: msgText,
+                room: 'main'
+              });
+              if (!error) {
+                await incrementXp();
+              } else {
+                console.error("Roll message insert error:", error);
+              }
+            } catch (err) {
+              console.error("Failed to send roll message:", err);
             }
           }}
         />

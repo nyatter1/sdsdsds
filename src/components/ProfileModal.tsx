@@ -3014,6 +3014,39 @@ export default function ProfileModal({
                       </div>
                     </div>
 
+                    {/* Border Thickness Customizer */}
+                    {tempBorder !== "none" && (
+                      <div className="bg-[#120e24]/40 border border-purple-900/30 p-3.5 rounded-xl space-y-2 mt-4">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] text-purple-300 uppercase font-black tracking-wider font-sans">
+                            Border Thickness
+                          </label>
+                          <span className="text-xs font-mono font-bold text-white bg-purple-900/40 px-2.5 py-0.5 rounded">
+                            {tempBorderThickness}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {["1px", "2px", "3px", "4px"].map((t) => {
+                            const isSelected = tempBorderThickness === t;
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setTempBorderThickness(t)}
+                                className={`py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "bg-purple-600 text-white border-purple-400 shadow-md"
+                                    : "bg-black/30 text-purple-300 border-white/5 hover:bg-white/5 hover:text-white"
+                                }`}
+                              >
+                                {t === "1px" ? "Very Thin" : t === "2px" ? "Thin" : t === "3px" ? "Medium" : "Thick"}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Navigation */}
                     <div className="flex items-center justify-between gap-3 mt-6">
                       <button 
