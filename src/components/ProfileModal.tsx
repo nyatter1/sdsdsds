@@ -3025,8 +3025,8 @@ export default function ProfileModal({
                             {tempBorderThickness}
                           </span>
                         </div>
-                        <div className="grid grid-cols-4 gap-2">
-                          {["1px", "2px", "3px", "4px"].map((t) => {
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                          {["1px", "2px", "3px", "4px", "5px", "6px"].map((t) => {
                             const isSelected = tempBorderThickness === t;
                             return (
                               <button

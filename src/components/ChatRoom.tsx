@@ -5,7 +5,7 @@ import {
   MoreHorizontal, EyeOff, Trash2, Reply, Volume2, VolumeX,
   Bell, ShieldCheck, Sparkles, AlertTriangle, Eye, Check, Heart, Edit2, Camera,
   Palette, CreditCard, Star, Lock, Unlock, Coins, Hand, Type, Newspaper,
-  Vote, Gift, ArrowRightLeft, Dices
+  Vote, Gift, ArrowRightLeft, Dices, UserCog, Info, Ban
 } from "lucide-react";
 import { UserProfile, Message, OnlineUser, RANKS_INFO, mapDbRankToUserRank, UserRank, getLevelFromXp } from "../types";
 import ProfileModal, { getProfileBorderStyle } from "./ProfileModal";
@@ -931,6 +931,20 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     }
   };
 
+  const addLocalSystemMessage = (textStr: string) => {
+    const localMsg: Message = {
+      id: "local-sys-" + Date.now() + Math.random(),
+      profile_id: "system",
+      username: "System",
+      pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=system",
+      text: textStr,
+      time: getSyncedDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isSystem: true,
+      rank: 'DEVELOPER'
+    };
+    setMessages(prev => [...prev, localMsg]);
+  };
+
   const handleSendMessage = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -956,20 +970,6 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     }
     
     setInputText("");
-
-    const addLocalSystemMessage = (textStr: string) => {
-      const localMsg: Message = {
-        id: "local-sys-" + Date.now() + Math.random(),
-        profile_id: "system",
-        username: "System",
-        pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=system",
-        text: textStr,
-        time: getSyncedDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isSystem: true,
-        rank: 'DEVELOPER'
-      };
-      setMessages(prev => [...prev, localMsg]);
-    };
 
     if (text.startsWith('/')) {
       const parts = text.split(' ').filter(Boolean);
@@ -2467,33 +2467,13 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                   if (msg.text?.startsWith('[USERNAME_CHANGE] ')) {
                     const changeText = msg.text.replace('[USERNAME_CHANGE] ', '').trim();
                     return (
-                      <div key={msg.id} className="flex gap-2.5 px-4 py-2 border-b border-white/5 bg-purple-950/10 items-center justify-start animate-in fade-in duration-200">
-                        <div 
-                          className="w-7 h-7 rounded-none bg-purple-950/50 border border-purple-800/40 overflow-hidden shrink-0 shadow-sm cursor-pointer"
-                          onClick={() => {
-                            handleProfileClick(BOT_USER);
-                          }}
-                        >
-                          <img src="https://musicvibe.io/default_images/avatar/default_system.png" alt="System Bot" className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-                          <img 
-                            src="https://musicvibe.io/default_images/rank/bot.svg" 
-                            alt="Bot" 
-                            className="h-3.5 w-auto object-contain shrink-0" 
-                            referrerPolicy="no-referrer"
-                            title="Bot"
-                          />
-                          <span 
-                            onClick={() => {
-                              handleProfileClick(BOT_USER);
-                            }}
-                            className="text-xs font-black text-rose-400 hover:underline cursor-pointer tracking-wide"
-                          >
-                            System
-                          </span>
-                          <span className="text-xs text-purple-200/90 font-bold">{changeText}</span>
-                          <span className="text-[9px] text-purple-500 font-medium shrink-0 ml-1">{msg.time}</span>
+                      <div key={msg.id} className="flex gap-2.5 px-4 py-3 border-b border-white/5 bg-purple-950/10 items-center justify-center animate-in fade-in duration-200">
+                        <div className="flex items-center gap-3 bg-gradient-to-r from-[#120e24]/80 to-[#1e133d]/50 border border-purple-500/30 px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.15)] max-w-lg w-full">
+                          <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 shrink-0">
+                            <UserCog className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs text-white/90 font-bold flex-1">{changeText}</span>
+                          <span className="text-[10px] text-white/40 font-mono font-medium shrink-0 ml-1">{msg.time}</span>
                         </div>
                       </div>
                     );
@@ -2502,7 +2482,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                   return (
                     <div 
                       key={msg.id} 
-                      className={`group flex gap-3 px-4 py-3 border-b border-white/5 relative ${msg.isSystem ? "bg-purple-950/20" : index % 2 === 0 ? "bg-[#161226]/80" : "bg-[#0d0a1c]/80"}`}
+                      className={`group flex gap-3 px-4 py-3 border-b border-white/5 relative ${msg.isSystem ? "bg-transparent" : index % 2 === 0 ? "bg-[#161226]/80" : "bg-[#0d0a1c]/80"}`}
                     >
                       {!msg.isSystem && (
                         <div 
@@ -2515,9 +2495,18 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                           <img src={msg.pfp} alt={msg.username} className="w-full h-full object-cover" />
                         </div>
                       )}
-                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <div className={`flex-1 min-w-0 flex flex-col justify-center ${msg.isSystem ? "items-center py-2" : ""}`}>
                         {msg.isSystem ? (
-                          <p className="text-xs text-purple-300/90 leading-relaxed font-medium text-center">{msg.text}</p>
+                          <div className="bg-gradient-to-br from-[#1b1532]/90 to-[#0f0a1f]/90 border border-purple-500/40 px-5 py-3 rounded-2xl shadow-[0_0_20px_rgba(168,85,247,0.15)] max-w-xl w-full flex items-center gap-4">
+                            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 shrink-0 shadow-inner">
+                              <Bell className="w-5 h-5 animate-pulse" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-0.5">System Broadcast</p>
+                              <p className="text-xs text-white leading-relaxed font-bold">{msg.text}</p>
+                            </div>
+                            <span className="text-[10px] text-purple-400/50 font-mono shrink-0 ml-2">{msg.time}</span>
+                          </div>
                         ) : (
                           <>
                             <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
@@ -2614,208 +2603,279 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
               {/* Chat Message Input Container */}
               <form onSubmit={handleSendMessage} className="p-4 bg-[#0d0a1c] border-t border-purple-950/40 shrink-0 relative">
                 {showPlusOptions && (
-                  <div className="absolute bottom-full left-4 mb-2 p-3 bg-[#161226] border border-purple-500/40 rounded-none shadow-2xl flex flex-col gap-2 min-w-[220px] animate-in slide-in-from-bottom-2 duration-200 z-50">
-                    <p className="text-[10px] text-purple-400 uppercase font-black tracking-wider border-b border-purple-950/40 pb-1.5 mb-1 flex items-center justify-between">
-                      <span>Options & Tools</span>
-                      <button type="button" onClick={() => setShowPlusOptions(false)} className="text-purple-500 hover:text-white">
-                        <X className="w-3 h-3" />
+                  <div className="absolute bottom-full left-4 mb-3 p-4 bg-gradient-to-b from-[#161229] to-[#0c0919] border border-purple-500/30 rounded-2xl shadow-[0_10px_50px_rgba(0,0,0,0.8),0_0_20px_rgba(168,85,247,0.15)] flex flex-col gap-3 w-[460px] max-w-[calc(100vw-2rem)] animate-in slide-in-from-bottom-2 duration-200 z-50">
+                    <div className="flex items-center justify-between border-b border-purple-950/40 pb-2">
+                      <span className="text-[10px] text-purple-400 uppercase font-black tracking-wider">
+                        Room Features & Utilities
+                      </span>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPlusOptions(false)} 
+                        className="text-purple-400 hover:text-white transition-colors p-1 hover:bg-purple-950/40 rounded"
+                      >
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                    </p>
-                    
-                    {/* Paint option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPaintModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-purple-950/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
-                    >
-                      <Palette className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Paint Canvas</span>
-                        <span className="text-[9px] text-purple-500">Draw & share on chat</span>
-                      </div>
-                    </button>
+                    </div>
 
-                    {/* Style Editor option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowStyleModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-purple-950/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
-                    >
-                      <Type className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Style Customizer</span>
-                        <span className="text-[9px] text-purple-500">Change fonts, colors, neon</span>
-                      </div>
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Paint option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPaintModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all shrink-0">
+                          <Palette className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Paint Canvas</span>
+                          <span className="text-[9px] text-purple-500 truncate">Draw & share on chat</span>
+                        </div>
+                      </button>
 
-                    
+                      {/* Style Editor option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowStyleModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all shrink-0">
+                          <Type className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Style Customizer</span>
+                          <span className="text-[9px] text-purple-500 truncate">Fonts, colors, neon</span>
+                        </div>
+                      </button>
 
-                    {/* Image option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        fileInputRef.current?.click();
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-purple-950/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
-                    >
-                      <Camera className="w-4 h-4 text-pink-500 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Upload Image</span>
-                        <span className="text-[9px] text-purple-500">Post images to everyone</span>
-                      </div>
-                    </button>
+                      {/* Image option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fileInputRef.current?.click();
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-pink-500/10 text-pink-500 group-hover:scale-110 group-hover:bg-pink-500/20 transition-all shrink-0">
+                          <Camera className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Upload Image</span>
+                          <span className="text-[9px] text-purple-500 truncate">Post image to room</span>
+                        </div>
+                      </button>
 
-                    
-                    {/* Gallery option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowGallerySettingsModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-purple-950/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
-                    >
-                      <ImageIcon className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Gallery</span>
-                        <span className="text-[9px] text-purple-500">Manage your profile photos</span>
-                      </div>
-                    </button>
+                      {/* Gallery option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowGallerySettingsModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 group-hover:scale-110 group-hover:bg-blue-500/20 transition-all shrink-0">
+                          <ImageIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Photo Gallery</span>
+                          <span className="text-[9px] text-purple-500 truncate">Manage profile photos</span>
+                        </div>
+                      </button>
 
-                    {/* Secret Message option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSecretMessageModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-purple-950/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
-                    >
-                      <Lock className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Secret Message</span>
-                        <span className="text-[9px] text-purple-500">Anonymously whisper users</span>
-                      </div>
-                    </button>
+                      {/* Secret Message option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSecretMessageModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all shrink-0">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Secret Message</span>
+                          <span className="text-[9px] text-purple-500 truncate">Whisper anonymously</span>
+                        </div>
+                      </button>
 
-                    {/* Secret Messages Box option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSecretMessagesListModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
-                    >
-                      <Unlock className="w-4 h-4 text-purple-300 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Secret Inbox</span>
-                        <span className="text-[9px] text-purple-400">Read & manage secret whispers</span>
-                      </div>
-                    </button>
+                      {/* Secret Messages Box option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSecretMessagesListModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 group-hover:scale-110 group-hover:bg-violet-500/20 transition-all shrink-0">
+                          <Unlock className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Secret Inbox</span>
+                          <span className="text-[9px] text-purple-500 truncate">Manage secret whispers</span>
+                        </div>
+                      </button>
 
-                    {/* Profile Visitors option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowProfileVisitorsModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
-                    >
-                      <Eye className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Profile Visitors</span>
-                        <span className="text-[9px] text-blue-400">See who viewed your profile</span>
-                      </div>
-                    </button>
+                      {/* Profile Visitors option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileVisitorsModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:scale-110 group-hover:bg-cyan-500/20 transition-all shrink-0">
+                          <Eye className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Profile Visitors</span>
+                          <span className="text-[9px] text-purple-500 truncate">Who viewed you</span>
+                        </div>
+                      </button>
 
-                    {/* Profile Decor option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowProfileDecorModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Profile Decor</span>
-                        <span className="text-[9px] text-amber-400">Buy Borders & Effects</span>
-                      </div>
-                    </button>
+                      {/* Profile Decor option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileDecorModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:scale-110 group-hover:bg-amber-500/20 transition-all shrink-0">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Profile Decor</span>
+                          <span className="text-[9px] text-purple-500 truncate">Borders & card effects</span>
+                        </div>
+                      </button>
 
-                    {/* Poll option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPollModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
-                    >
-                      <Vote className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Room Poll</span>
-                        <span className="text-[9px] text-purple-400">Create interactive poll</span>
-                      </div>
-                    </button>
+                      {/* Poll option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPollModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400 group-hover:scale-110 group-hover:bg-sky-500/20 transition-all shrink-0">
+                          <Vote className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Room Poll</span>
+                          <span className="text-[9px] text-purple-500 truncate">Create dynamic poll</span>
+                        </div>
+                      </button>
 
-                    {/* Gift option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowGiftModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
-                    >
-                      <Gift className="w-4 h-4 text-pink-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Gift Box</span>
-                        <span className="text-[9px] text-purple-400">Wrap a message (5 Rubies)</span>
-                      </div>
-                    </button>
+                      {/* Gift option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowGiftModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 group-hover:scale-110 group-hover:bg-rose-500/20 transition-all shrink-0">
+                          <Gift className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Gift Box</span>
+                          <span className="text-[9px] text-purple-500 truncate">Wrap text (5 Rubies)</span>
+                        </div>
+                      </button>
 
-                    {/* Currency Exchange option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowConvertModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
-                    >
-                      <ArrowRightLeft className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Exchange Office</span>
-                        <span className="text-[9px] text-purple-400">Convert Gold and Rubies</span>
-                      </div>
-                    </button>
+                      {/* Currency Exchange option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowConvertModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 group-hover:scale-110 group-hover:bg-amber-500/20 transition-all shrink-0">
+                          <ArrowRightLeft className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Exchange Office</span>
+                          <span className="text-[9px] text-purple-500 truncate">Convert Gold & Rubies</span>
+                        </div>
+                      </button>
 
-                    {/* Dice & Coin Roller option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowDiceModal(true);
-                        setShowPlusOptions(false);
-                      }}
-                      className="flex items-center gap-2.5 px-2 py-1.5 bg-purple-950/30 hover:bg-purple-950/50 border border-purple-900/40 rounded-lg text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group mt-1"
-                    >
-                      <Dices className="w-4 h-4 text-violet-400 group-hover:scale-110 transition-transform shrink-0 animate-pulse" />
-                      <div className="flex flex-col">
-                        <span className="font-bold">Dice & Coin Roller</span>
-                        <span className="text-[9px] text-purple-400">Roll dice or flip a coin</span>
-                      </div>
-                    </button>
+                      {/* Dice & Coin Roller option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDiceModal(true);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400 group-hover:scale-110 group-hover:bg-teal-500/20 transition-all shrink-0">
+                          <Dices className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Dice & Coin Roller</span>
+                          <span className="text-[9px] text-purple-500 truncate">Roll dice or flip coin</span>
+                        </div>
+                      </button>
+                      {/* Clear Chat option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playAudio('/clear.mp3');
+                          setMessages([]);
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:scale-110 group-hover:bg-red-500/20 transition-all shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Clear Screen</span>
+                          <span className="text-[9px] text-purple-500 truncate">Remove local messages</span>
+                        </div>
+                      </button>
+
+                      {/* Commands option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addLocalSystemMessage(
+                            `📜 Chat Commands List:\n` +
+                            `• /commands - Show this help list (only visible to you).\n` +
+                            `• /clear - Clear your chat screen locally.\n` +
+                            `• /allin [gold/rubies] - Bet ALL your Gold or Rubies for a multiplier up to x1000!\n` +
+                            `• /dice [gold/rubies] [amount] - Roll 1-6. Lands on 6 wins up to x1000 multiplier!`
+                          );
+                          setShowPlusOptions(false);
+                        }}
+                        className="flex items-center gap-3 p-2 bg-[#1b1532]/40 hover:bg-purple-900/30 border border-purple-900/10 hover:border-purple-500/30 rounded-xl text-left text-xs text-purple-200 hover:text-white transition-all cursor-pointer group"
+                      >
+                        <div className="p-2 rounded-lg bg-orange-500/10 text-orange-400 group-hover:scale-110 group-hover:bg-orange-500/20 transition-all shrink-0">
+                          <Newspaper className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold truncate">Command List</span>
+                          <span className="text-[9px] text-purple-500 truncate">Show text commands</span>
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isEmojiPickerOpen && (
@@ -3316,6 +3376,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
               setProfileTarget({ ...profileTarget, ...updated });
             } else {
               console.error("Profile update error:", error);
+              alert("Failed to save profile changes: " + (error?.message || "Unknown error"));
             }
           }}
         />
