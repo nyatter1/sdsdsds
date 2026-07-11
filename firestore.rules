@@ -76,14 +76,18 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == profileId;
       allow update: if isSignedIn() && (
-        // Case 1: User updating their own profile details (excluding rank, currency, moderation fields)
+        // Case 1: User updating their own profile details
+        // - Cannot change rank or moderation fields
+        // - Coins and rubies can only stay the same or decrease (to spend on items/decor) and must be >= 0
         (request.auth.uid == profileId && 
-         request.resource.data.rank == resource.data.rank &&
-         request.resource.data.coins == resource.data.coins &&
-         request.resource.data.rubies == resource.data.rubies &&
-         request.resource.data.is_muted == resource.data.is_muted &&
-         request.resource.data.is_banned == resource.data.is_banned &&
-         request.resource.data.is_kicked == resource.data.is_kicked
+         request.resource.data.get('rank', 'USER') == resource.data.get('rank', 'USER') &&
+         request.resource.data.get('is_muted', false) == resource.data.get('is_muted', false) &&
+         request.resource.data.get('is_banned', false) == resource.data.get('is_banned', false) &&
+         request.resource.data.get('is_kicked', false) == resource.data.get('is_kicked', false) &&
+         request.resource.data.get('coins', 0) >= 0 &&
+         request.resource.data.get('coins', 0) <= resource.data.get('coins', 0) &&
+         request.resource.data.get('rubies', 0) >= 0 &&
+         request.resource.data.get('rubies', 0) <= resource.data.get('rubies', 0)
         ) ||
         // Case 2: Staff member updating someone else's profile (moderation / ranking)
         (request.auth.uid != profileId && (
@@ -91,26 +95,26 @@ service cloud.firestore {
           (
             isStaffUser(request.auth.uid) &&
             // Strict hierarchy check: actor must be strictly higher rank than target
-            getRankPriority(getUserRank(request.auth.uid)) < getRankPriority(resource.data.rank) &&
+            getRankPriority(getUserRank(request.auth.uid)) < getRankPriority(resource.data.get('rank', 'USER')) &&
             
             // If they are changing the rank:
-            (request.resource.data.rank == resource.data.rank || (
+            (request.resource.data.get('rank', 'USER') == resource.data.get('rank', 'USER') || (
               // Actor can only set a rank strictly below their own rank
-              getRankPriority(getUserRank(request.auth.uid)) < getRankPriority(request.resource.data.rank)
+              getRankPriority(getUserRank(request.auth.uid)) < getRankPriority(request.resource.data.get('rank', 'USER'))
             )) &&
             
             // If they are banning/unbanning: only Founder and above (priority <= 2) can do it
-            (request.resource.data.is_banned == resource.data.is_banned || (
+            (request.resource.data.get('is_banned', false) == resource.data.get('is_banned', false) || (
               getRankPriority(getUserRank(request.auth.uid)) <= 2
             )) &&
 
             // If they are kicking/unkicking: only Admin and above (priority <= 4) can do it
-            (request.resource.data.is_kicked == resource.data.is_kicked || (
+            (request.resource.data.get('is_kicked', false) == resource.data.get('is_kicked', false) || (
               getRankPriority(getUserRank(request.auth.uid)) <= 4
             )) &&
 
             // If they are muting/unmuting: Mod and above (priority <= 5) can do it
-            (request.resource.data.is_muted == resource.data.is_muted || (
+            (request.resource.data.get('is_muted', false) == resource.data.get('is_muted', false) || (
               getRankPriority(getUserRank(request.auth.uid)) <= 5
             ))
           )

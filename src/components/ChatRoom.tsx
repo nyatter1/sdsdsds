@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, FormEvent, ChangeEvent, useMemo } from "react";
+import React, { useState, useEffect, useRef, FormEvent, ChangeEvent, useMemo } from "react";
 import { 
   Menu, X, Send, Plus, Smile, Users, 
   Crown, ShieldAlert as RulesIcon, ChevronLeft, ChevronRight, LogOut, Shield,
@@ -126,12 +126,8 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
   const [adminTab, setAdminTab] = useState<"accounts" | "ranks" | "announcements">("accounts");
 
   const playNotifySound = () => {
-    try {
-      const audio = new Audio('/notify.mp3');
-      audio.play().catch(() => {});
-    } catch (e) {
-      console.warn("Failed to play notify.mp3", e);
-    }
+    if (!soundsEnabled) return;
+    playSynthSound('notify');
   };
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -229,50 +225,21 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
 
   const playAudio = (src: string) => {
     if (!soundsEnabled) return;
-    try {
-      const url = getAssetUrl(src);
-      let audio = audioCache.current[url];
-      if (!audio) {
-        audio = new Audio(url);
-        audio.onerror = () => {
-          // Automatic seamless fallback if format is not supported or file is empty
-          playSynthSound(src);
-        };
-        audioCache.current[url] = audio;
-      }
-      audio.currentTime = 0;
-      audio.play().catch((err) => {
-        // If playback is blocked or fails, trigger synthesizer
-        playSynthSound(src);
-      });
-    } catch (e) {
-      playSynthSound(src);
-    }
+    playSynthSound(src);
   };
 
   useEffect(() => {
     const unlockAudio = () => {
-      // Play a quick silent sound to unlock browser audio autoplay restriction
-      const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAD");
-      silentAudio.play().then(() => {
-        console.log("Audio autoplay restriction successfully unlocked via user interaction.");
-      }).catch((e) => {
-        console.warn("Silent audio unlock failed:", e);
-      });
-      
-      // Warm up and pre-load all real sounds so they are loaded and ready instantly
-      const sounds = ['/clear.mp3', '/join.mp3', '/message.mp3', '/new_news.mp3', '/private.mp3', '/username.mp3', '/notify.mp3'];
-      sounds.forEach(sound => {
-        try {
-          const url = getAssetUrl(sound);
-          let audio = audioCache.current[url];
-          if (!audio) {
-            audio = new Audio(url);
-            audioCache.current[url] = audio;
+      // Warm up and unlock AudioContext if needed
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const ctx = new AudioContextClass();
+          if (ctx.state === 'suspended') {
+            ctx.resume();
           }
-          audio.load();
-        } catch (err) {}
-      });
+        }
+      } catch (err) {}
 
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
@@ -715,7 +682,13 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
 
     // 2. Borders and styles (unless it is terminal mode)
     if (u.cardGlowType !== 'terminal' && u.border && u.border !== 'none') {
-      const borderStyles = getProfileBorderStyle(u.border, u.borderThickness || "2px");
+      let thickness = u.borderThickness || "2px";
+      if (thickness === "1px") thickness = "3px";
+      else if (thickness === "2px") thickness = "4px";
+      else if (thickness === "4px") thickness = "6px";
+      else if (thickness === "6px") thickness = "8px";
+
+      const borderStyles = getProfileBorderStyle(u.border, thickness);
       style = {
         ...style,
         ...borderStyles,
@@ -724,11 +697,6 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
         style.borderStyle = u.borderStyle;
       }
       className += ` profile-border-${u.border}`;
-    }
-
-    // 3. Profile effects (sepia, flames, rain, etc.)
-    if (u.profile_effect && u.profile_effect !== 'none') {
-      className += u.profile_effect === 'sepia' ? ' profile-effect-sepia' : ` profile-effect-${u.profile_effect}`;
     }
 
     return { style, className };
@@ -1795,7 +1763,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
       if (rankDiff !== 0) return rankDiff;
       return a.username.localeCompare(b.username);
     });
-  }, [onlineUsers, onlineUserIds, allRanksInfo, user.id, user.rank]);
+  }, [onlineUsers, onlineUserIds, allRanksInfo, user]);
 
   const staffRanksList = useMemo(() => {
     // Collect all ranks where isStaff is true, sorted by priority ascending
@@ -2887,19 +2855,33 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                       .filter(u => genderFilter === 'ALL' || (u.gender && u.gender.toUpperCase() === genderFilter))
                       .map((u) => {
                         const cardGlow = getUserCardStyle(u);
+                        const hasCustomBorder = u.border && u.border !== 'none';
                         const isGlowActive = u.cardGlowType && u.cardGlowType !== 'none';
+                        const hasCustomStyle = isGlowActive || hasCustomBorder;
+                        
+                        let cardClasses = "p-2.5 rounded-none flex items-center justify-between transition-all cursor-pointer ";
+                        if (u.isCurrentUser) {
+                          cardClasses += "bg-[#1a1435]/40 ";
+                        } else {
+                          cardClasses += "bg-[#120e24]/60 hover:bg-[#1a1435]/80 ";
+                        }
+
+                        if (hasCustomStyle) {
+                          cardClasses += cardGlow.className;
+                        } else {
+                          if (u.isCurrentUser) {
+                            cardClasses += "border border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)] animate-pulse-border";
+                          } else {
+                            cardClasses += "border border-purple-950/40 hover:border-purple-800/40";
+                          }
+                        }
+
                         return (
                           <div
                             key={u.id}
                             onClick={() => handleProfileClick(u)}
-                            className={`p-2.5 rounded-none flex items-center justify-between transition-all cursor-pointer ${
-                              isGlowActive 
-                                ? cardGlow.className 
-                                : u.isCurrentUser 
-                                  ? "border border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)] bg-[#1a1435]/40 animate-pulse-border" 
-                                  : "border border-purple-950/40 hover:border-purple-800/40 bg-[#120e24]/60"
-                            }`}
-                            style={isGlowActive ? cardGlow.style : undefined}
+                            className={cardClasses}
+                            style={hasCustomStyle ? cardGlow.style : undefined}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="relative">
@@ -2947,17 +2929,23 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                       .filter(u => genderFilter === 'ALL' || (u.gender && u.gender.toUpperCase() === genderFilter))
                       .map((u) => {
                         const cardGlow = getUserCardStyle(u);
+                        const hasCustomBorder = u.border && u.border !== 'none';
                         const isGlowActive = u.cardGlowType && u.cardGlowType !== 'none';
+                        const hasCustomStyle = isGlowActive || hasCustomBorder;
+                        
+                        let cardClasses = "p-2.5 rounded-none flex items-center justify-between transition-all cursor-pointer opacity-60 grayscale hover:grayscale-0 hover:opacity-100 bg-[#120e24]/30 ";
+                        if (hasCustomStyle) {
+                          cardClasses += cardGlow.className;
+                        } else {
+                          cardClasses += "border border-purple-950/20";
+                        }
+
                         return (
                           <div
                             key={u.id}
                             onClick={() => handleProfileClick(u)}
-                            className={`p-2.5 rounded-none flex items-center justify-between transition-all cursor-pointer opacity-60 grayscale hover:grayscale-0 hover:opacity-100 ${
-                              isGlowActive 
-                                ? cardGlow.className 
-                                : "border border-purple-950/20 bg-[#120e24]/30"
-                            }`}
-                            style={isGlowActive ? cardGlow.style : undefined}
+                            className={cardClasses}
+                            style={hasCustomStyle ? cardGlow.style : undefined}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="relative">
@@ -3018,23 +3006,43 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                         {group.users.map((u) => {
                           const isOnline = u.status === 'online';
                           const cardGlow = getUserCardStyle(u);
+                          const hasCustomBorder = u.border && u.border !== 'none';
                           const isGlowActive = u.cardGlowType && u.cardGlowType !== 'none';
+                          const hasCustomStyle = isGlowActive || hasCustomBorder;
+
+                          let cardClasses = "p-2 rounded-none flex items-center justify-between transition-all cursor-pointer ";
+                          
+                          if (isOnline) {
+                            if (u.isCurrentUser) {
+                              cardClasses += "bg-[#1a1435]/40 ";
+                            } else {
+                              cardClasses += "bg-[#120e24]/60 hover:bg-[#1a1435]/80 ";
+                            }
+                            
+                            if (hasCustomStyle) {
+                              cardClasses += cardGlow.className;
+                            } else {
+                              if (u.isCurrentUser) {
+                                cardClasses += "border border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]";
+                              } else {
+                                cardClasses += "border border-purple-950/40 hover:border-purple-800/40";
+                              }
+                            }
+                          } else {
+                            cardClasses += "bg-[#120e24]/20 opacity-55 grayscale hover:grayscale-0 hover:opacity-100 ";
+                            if (hasCustomStyle) {
+                              cardClasses += cardGlow.className;
+                            } else {
+                              cardClasses += "border border-purple-950/20";
+                            }
+                          }
+
                           return (
                             <div
                               key={u.id}
                               onClick={() => handleProfileClick(u)}
-                              className={`p-2 rounded-none flex items-center justify-between transition-all cursor-pointer ${
-                                isOnline 
-                                  ? isGlowActive
-                                    ? cardGlow.className
-                                    : u.isCurrentUser 
-                                      ? "border border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)] bg-[#1a1435]/40" 
-                                      : "border border-purple-950/40 hover:border-purple-800/40 bg-[#120e24]/60"
-                                  : isGlowActive
-                                    ? `${cardGlow.className} opacity-55 grayscale hover:grayscale-0 hover:opacity-100`
-                                    : "border border-purple-950/20 bg-[#120e24]/20 opacity-55 grayscale hover:grayscale-0 hover:opacity-100"
-                              }`}
-                              style={isGlowActive ? cardGlow.style : undefined}
+                              className={cardClasses}
+                              style={hasCustomStyle ? cardGlow.style : undefined}
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="relative">
