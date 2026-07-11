@@ -1,0 +1,245 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- GLOBAL SAFETY NET ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper to check if the user is authenticated in Firebase
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check if the actor is a developer based on their authenticated email
+    function isDeveloper() {
+      return isSignedIn() && (
+        request.auth.token.email == 'dev@gmail.com' ||
+        request.auth.token.email == 'haydensixseven@gmail.com' ||
+        request.auth.token.email == 'haydensixsevennn@gmail.com' ||
+        request.auth.token.email == 'test@gmail.com'
+      );
+    }
+
+    // Safely retrieve user rank
+    function getUserRank(userId) {
+      return exists(/databases/$(database)/documents/profiles/$(userId))
+        ? get(/databases/$(database)/documents/profiles/$(userId)).data.rank
+        : 'VIP';
+    }
+
+    // Map rank to numeric priority hierarchy (lower number is higher/more powerful rank)
+    function getRankPriority(rank) {
+      return rank == 'DEVELOPER' ? 0 :
+             rank == 'CO-DEVELOPER' ? 1 :
+             rank == 'FOUNDER' ? 2 :
+             rank == 'SUPERADMIN' ? 3 :
+             rank == 'ADMIN' ? 4 :
+             rank == 'MOD' ? 5 :
+             rank == 'BOT' ? 6 :
+             rank == 'MOP' ? 7 :
+             rank == 'DRAGON' ? 8 :
+             rank == 'ELITE' ? 9 :
+             rank == 'GOLD' ? 10 :
+             rank == 'MANTIS' ? 11 :
+             rank == 'SNAKE' ? 12 :
+             rank == 'SUPERVIP' ? 13 :
+             rank == 'TIGER' ? 14 :
+             15; // VIP and custom non-staff ranks default to lowest priority
+    }
+
+    // Check if rank is a staff rank
+    function isStaff(rank) {
+      return rank == 'DEVELOPER' ||
+             rank == 'CO-DEVELOPER' ||
+             rank == 'FOUNDER' ||
+             rank == 'SUPERADMIN' ||
+             rank == 'ADMIN' ||
+             rank == 'MOD' ||
+             rank == 'BOT';
+    }
+
+    // Check if a user is staff
+    function isStaffUser(userId) {
+      return isStaff(getUserRank(userId)) || isDeveloper();
+    }
+
+    // --- COLLECTION RULES ---
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /profiles/{profileId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == profileId;
+      allow update: if isSignedIn() && (
+        // Case 1: User updating their own profile details (excluding rank, currency, moderation fields)
+        (request.auth.uid == profileId && 
+         request.resource.data.rank == resource.data.rank &&
+         request.resource.data.coins == resource.data.coins &&
+         request.resource.data.rubies == resource.data.rubies &&
+         request.resource.data.is_muted == resource.data.is_muted &&
+         request.resource.data.is_banned == resource.data.is_banned &&
+         request.resource.data.is_kicked == resource.data.is_kicked
+        ) ||
+        // Case 2: Staff member updating someone else's profile (moderation / ranking)
+        (request.auth.uid != profileId && (
+          isDeveloper() || 
+          (
+            isStaffUser(request.auth.uid) &&
+            // Strict hierarchy check: actor must be strictly higher rank than target
+            getRankPriority(getUserRank(request.auth.uid)) < getRankPriority(resource.data.rank) &&
+            
+            // If they are changing the rank:
+            (request.resource.data.rank == resource.data.rank || (
+              // Actor can only set a rank strictly below their own rank
+              getRankPriority(getUserRank(request.auth.uid)) < getRankPriority(request.resource.data.rank)
+            )) &&
+            
+            // If they are banning/unbanning: only Founder and above (priority <= 2) can do it
+            (request.resource.data.is_banned == resource.data.is_banned || (
+              getRankPriority(getUserRank(request.auth.uid)) <= 2
+            )) &&
+
+            // If they are kicking/unkicking: only Admin and above (priority <= 4) can do it
+            (request.resource.data.is_kicked == resource.data.is_kicked || (
+              getRankPriority(getUserRank(request.auth.uid)) <= 4
+            )) &&
+
+            // If they are muting/unmuting: Mod and above (priority <= 5) can do it
+            (request.resource.data.is_muted == resource.data.is_muted || (
+              getRankPriority(getUserRank(request.auth.uid)) <= 5
+            ))
+          )
+        ))
+      );
+      allow delete: if isSignedIn() && (
+        isDeveloper() || 
+        getRankPriority(getUserRank(request.auth.uid)) <= 0
+      );
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        resource.data.profile_id == request.auth.uid ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (
+        resource.data.target_id == request.auth.uid ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        resource.data.target_id == request.auth.uid ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+    }
+
+    match /custom_ranks/{rankId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (
+        getRankPriority(getUserRank(request.auth.uid)) <= 2 ||
+        isDeveloper()
+      );
+    }
+
+    match /profile_likes/{likeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        resource.data.liker_id == request.auth.uid ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        resource.data.rater_id == request.auth.uid ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+    }
+
+    match /secret_messages/{messageId} {
+      allow read: if isSignedIn() && (
+        resource.data.recipient_id == request.auth.uid ||
+        resource.data.sender_id == request.auth.uid ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        // Recipient can update (request reveal)
+        (resource.data.recipient_id == request.auth.uid && request.resource.data.request_reveal == true) ||
+        // Sender can update (reveal identity)
+        (resource.data.sender_id == request.auth.uid && request.resource.data.revealed == true) ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.recipient_id == request.auth.uid ||
+        resource.data.sender_id == request.auth.uid ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+    }
+
+    match /news/{newsId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+        getRankPriority(getUserRank(request.auth.uid)) <= 2 ||
+        isDeveloper()
+      );
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && (
+        getRankPriority(getUserRank(request.auth.uid)) <= 2 ||
+        isDeveloper()
+      );
+    }
+
+    match /news_comments/{commentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.author_id == request.auth.uid ||
+        getRankPriority(getUserRank(request.auth.uid)) <= 2 ||
+        isDeveloper()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.author_id == request.auth.uid ||
+        getRankPriority(getUserRank(request.auth.uid)) <= 2 ||
+        isDeveloper()
+      );
+    }
+
+    match /presences/{presenceId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /profile_visits/{visitId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}
