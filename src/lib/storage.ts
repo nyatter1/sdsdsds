@@ -1,13 +1,12 @@
 /**
- * Uploads a file to a free public cloud (Catbox).
- * Catbox supports up to 200MB and provides direct links (e.g. .mp3, .jpg).
+ * Uploads a file to a free public cloud (Catbox) from the browser.
+ * Note: Direct browser upload to Catbox may fail in some environments due to CORS policies.
  */
-async function uploadToCatbox(file: File): Promise<string> {
+async function uploadToCatboxClient(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('reqtype', 'fileupload');
   formData.append('fileToUpload', file);
 
-  // No short timeout, let it take the time it needs for 5MB+ files
   const res = await fetch('https://catbox.moe/user/api.php', {
     method: 'POST',
     body: formData
@@ -25,7 +24,8 @@ async function uploadToCatbox(file: File): Promise<string> {
 }
 
 /**
- * Uploads an image. Tries local backend first (fastest), then Catbox, then Base64.
+ * Uploads an image. Tries local backend first (which handles cloud/Catbox upload server-side to avoid CORS),
+ * then direct browser-to-Catbox, then Base64.
  */
 export async function uploadImageToStorage(
   file: File,
@@ -48,12 +48,12 @@ export async function uploadImageToStorage(
     const result = await res.json();
     return result.data.path;
   } catch (err) {
-    console.warn("Local storage upload failed, trying Catbox cloud:", err);
+    console.warn("Backend upload failed, trying direct Catbox client upload:", err);
     
     try {
-      return await uploadToCatbox(file);
+      return await uploadToCatboxClient(file);
     } catch (catboxErr) {
-      console.warn("Catbox cloud upload failed, falling back to base64:", catboxErr);
+      console.warn("Direct Catbox client upload failed, falling back to base64:", catboxErr);
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -103,22 +103,18 @@ export async function uploadImageToStorage(
 }
 
 /**
- * Uploads an audio file directly to Catbox to ensure we get a persistent .mp3 link
- * and to handle 5MB+ files without hitting local/base64 limits.
+ * Uploads an audio file. Tries local backend first (which handles cloud/Catbox upload server-side to avoid CORS),
+ * then direct browser-to-Catbox, then Base64.
  */
 export async function uploadAudioToStorage(
   file: File,
   folder: string,
   fileName: string
 ): Promise<string> {
-  // Always try Catbox first for audio so it gets a persistent .mp3 link
+  const formData = new FormData();
+  formData.append('file', file);
+  
   try {
-    return await uploadToCatbox(file);
-  } catch (err) {
-    console.warn("Catbox upload failed for audio, falling back to local server:", err);
-    const formData = new FormData();
-    formData.append('file', file);
-    
     const res = await fetch('/api/upload', {
       method: 'POST',
       body: formData
@@ -130,5 +126,25 @@ export async function uploadAudioToStorage(
     
     const result = await res.json();
     return result.data.path;
+  } catch (err) {
+    console.warn("Backend upload failed for audio, trying direct Catbox client upload:", err);
+    
+    try {
+      return await uploadToCatboxClient(file);
+    } catch (catboxErr) {
+      console.warn("Direct Catbox client upload failed, falling back to base64:", catboxErr);
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error("Failed to convert audio file to base64"));
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
   }
 }

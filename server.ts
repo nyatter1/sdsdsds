@@ -767,17 +767,52 @@ app.get("/api/realtime/events", (req, res) => {
   });
 });
 
+async function uploadToCatboxServer(filePath: string, originalName: string, mimeType: string): Promise<string> {
+  const fileBuffer = fs.readFileSync(filePath);
+  const blob = new Blob([fileBuffer], { type: mimeType });
+  const formData = new FormData();
+  formData.append('reqtype', 'fileupload');
+  formData.append('fileToUpload', blob, originalName);
+
+  const res = await fetch('https://catbox.moe/user/api.php', {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error(`Catbox upload failed with status ${res.status}`);
+  }
+
+  const url = await res.text();
+  if (!url.trim().startsWith('http')) {
+    throw new Error(`Invalid response from Catbox: ${url}`);
+  }
+  return url.trim();
+}
+
 // 8. Upload File
-app.post("/api/upload", upload.single("file"), (req: any, res: any) => {
+app.post("/api/upload", upload.single("file"), async (req: any, res: any) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
-  const publicUrl = `/uploads/${req.file.filename}`;
-  res.json({
-    data: {
-      path: publicUrl
-    }
-  });
+  
+  try {
+    // Try to upload to Catbox server-side (bypasses browser CORS and works everywhere)
+    const cloudUrl = await uploadToCatboxServer(req.file.path, req.file.originalname, req.file.mimetype);
+    return res.json({
+      data: {
+        path: cloudUrl
+      }
+    });
+  } catch (err) {
+    console.warn("Backend Catbox upload failed, falling back to local file storage:", err);
+    const publicUrl = `/uploads/${req.file.filename}`;
+    return res.json({
+      data: {
+        path: publicUrl
+      }
+    });
+  }
 });
 
 app.use("/uploads", express.static(UPLOADS_DIR));

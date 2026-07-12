@@ -2573,7 +2573,7 @@ export default function ProfileModal({
         </div>
 
         {/* Banner */}
-        <div className="h-48 w-full relative bg-purple-900/20 shrink-0">
+        <div className="h-48 w-full relative z-10 bg-purple-900/20 shrink-0">
           {targetUser.banner && (
             <img src={targetUser.banner} className="w-full h-full object-cover" alt="Banner" />
           )}
@@ -2585,7 +2585,7 @@ export default function ProfileModal({
           )}
           
           {/* Avatar Area */}
-          <div className="absolute bottom-[-40px] left-8 flex items-end gap-5">
+          <div className="absolute bottom-[-40px] left-8 flex items-end gap-5 z-10">
             <div className="relative group">
               <div className="w-32 h-32 rounded-none border-4 border-[#0d0a1c] bg-[#161226] overflow-hidden shadow-2xl relative">
                 <img src={targetUser.pfp} className="w-full h-full object-cover" alt={targetUser.username} />
