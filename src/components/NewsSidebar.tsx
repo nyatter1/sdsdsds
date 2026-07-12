@@ -14,6 +14,7 @@ interface NewsSidebarProps {
   allRanksInfo: any;
   computedUsers: UserProfile[];
   handleProfileClick: (target: UserProfile, mode?: "quick" | "view" | "edit") => void;
+  playAudio?: (src: string) => void;
 }
 
 interface NewsItem {
@@ -46,7 +47,8 @@ export default function NewsSidebar({
   onClose,
   allRanksInfo,
   computedUsers,
-  handleProfileClick
+  handleProfileClick,
+  playAudio
 }: NewsSidebarProps) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [comments, setComments] = useState<NewsComment[]>([]);
@@ -107,8 +109,13 @@ export default function NewsSidebar({
     // Setup live listener channels
     const newsChannel = supabase
       .channel("news-realtime-channel")
-      .on("postgres_changes", { event: "*", schema: "public", table: "news" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "news" }, (payload: any) => {
         fetchNewsAndComments();
+        if (payload?.eventType === "INSERT") {
+          if (playAudio) {
+            playAudio("new_news.mp3");
+          }
+        }
       })
       .subscribe();
 

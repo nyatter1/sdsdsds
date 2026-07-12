@@ -227,7 +227,42 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
 
   const playAudio = (src: string) => {
     if (!soundsEnabled) return;
-    playSynthSound(src);
+    
+    // Normalize and map to the specific requested sound files
+    let filename = "";
+    const lower = src.toLowerCase();
+    if (lower.includes('clear')) filename = "clear.mp3";
+    else if (lower.includes('username') || lower.includes('tag')) filename = "username.mp3";
+    else if (lower.includes('message') || lower.includes('msg')) filename = "new_message.mp3";
+    else if (lower.includes('action') || lower.includes('ban') || lower.includes('kick') || lower.includes('mute') || lower.includes('username_change')) filename = "action.mp3";
+    else if (lower.includes('notify') || lower.includes('notif')) filename = "notify.mp3";
+    else if (lower.includes('news')) filename = "new_news.mp3";
+    else filename = src;
+
+    // Remove any leading slashes or full paths to standardize
+    if (filename.includes('/')) {
+      filename = filename.substring(filename.lastIndexOf('/') + 1);
+    }
+
+    try {
+      const fullSrc = `/${filename}`;
+      let audio = audioCache.current[fullSrc];
+      if (!audio) {
+        audio = new Audio(getAssetUrl(fullSrc));
+        audioCache.current[fullSrc] = audio;
+      }
+      audio.currentTime = 0;
+      audio.play().catch(err => {
+        console.warn(`HTML5 Audio play failed for ${filename}, falling back to synthesizer:`, err);
+        // Play synth fallback
+        const synthKey = filename.replace('.mp3', '');
+        playSynthSound(synthKey);
+      });
+    } catch (err) {
+      console.warn("Audio element setup failed, falling back to synthesizer:", err);
+      const synthKey = filename.replace('.mp3', '');
+      playSynthSound(synthKey);
+    }
   };
 
   useEffect(() => {
@@ -266,16 +301,25 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
         const newMsg = payload?.new as any;
         if (!newMsg) return;
         
-        if (newMsg.text?.startsWith('[SYSTEM] Chat cleared by')) {
+        if (newMsg.text?.startsWith('[SYSTEM] Chat cleared by') || newMsg.text?.startsWith('[SYSTEM] Chat cleared:')) {
            playAudio('/clear.mp3');
            setMessages([]);
         } else if (newMsg.text?.startsWith('[USERNAME_CHANGE] ')) {
+           playAudio('/action.mp3');
+        } else if (newMsg.text?.startsWith('[SYSTEM] ') && (
+          newMsg.text.includes('has been banned') ||
+          newMsg.text.includes('has been unbanned') ||
+          newMsg.text.includes('has been kicked') ||
+          newMsg.text.includes('has been unkicked') ||
+          newMsg.text.includes('has been muted') ||
+          newMsg.text.includes('has been unmuted')
+        )) {
            playAudio('/action.mp3');
         } else if (newMsg.profile_id !== user.id) {
            if (newMsg.text && newMsg.text.toLowerCase().includes(`@${user.username.toLowerCase()}`)) {
               playAudio('/username.mp3');
            } else {
-              playAudio('/message.mp3');
+              playAudio('/new_message.mp3');
            }
         }
         
@@ -2414,6 +2458,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
             allRanksInfo={allRanksInfo}
             computedUsers={computedUsers}
             handleProfileClick={handleProfileClick}
+            playAudio={playAudio}
           />
         )}
 
@@ -2485,18 +2530,47 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                           <img src={msg.pfp} alt={msg.username} className="w-full h-full object-cover" />
                         </div>
                       )}
-                      <div className={`flex-1 min-w-0 flex flex-col justify-center ${msg.isSystem ? "items-center py-2" : ""}`}>
+                      <div className={`flex-1 min-w-0 flex flex-col justify-center ${(msg.isSystem && !(msg.text && (msg.text.includes("Chat cleared by") || msg.text.includes("cleared by")))) ? "items-center py-2" : ""}`}>
                         {msg.isSystem ? (
-                          <div className="bg-gradient-to-br from-[#1b1532]/90 to-[#0f0a1f]/90 border border-purple-500/40 px-5 py-3 rounded-2xl shadow-[0_0_20px_rgba(168,85,247,0.15)] max-w-xl w-full flex items-center gap-4">
-                            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 shrink-0 shadow-inner">
-                              <Bell className="w-5 h-5 animate-pulse" />
+                          (msg.text && (msg.text.includes("Chat cleared by") || msg.text.includes("cleared by"))) ? (
+                            <div className="flex items-center gap-3 py-1 text-sm text-[#8c88a5] font-medium animate-in fade-in duration-200">
+                              <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 shadow-md border border-white/10 bg-[#161226]/80 flex items-center justify-center">
+                                <img 
+                                  src="https://musicvibe.io/default_images/avatar/default_system.png" 
+                                  alt="System Bot" 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    (e.target as any).src = "https://api.dicebear.com/7.x/identicon/svg?seed=System";
+                                  }}
+                                />
+                              </div>
+                              <span className="flex items-center gap-1.5">
+                                This room has been cleared by{" "}
+                                <span 
+                                  onClick={() => {
+                                    const clearedUsername = msg.text.replace(/Chat cleared by:?/i, '').trim();
+                                    const foundUser = computedUsers.find(u => u.username === clearedUsername);
+                                    if (foundUser) handleProfileClick(foundUser);
+                                  }}
+                                  className="text-white font-bold hover:underline cursor-pointer transition-colors"
+                                >
+                                  {msg.text.replace(/Chat cleared by:?/i, '').trim()}
+                                </span>
+                              </span>
+                              <span className="text-[10px] text-purple-500 font-medium ml-1 shrink-0">{msg.time}</span>
                             </div>
-                            <div className="flex-1">
-                              <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-0.5">System Broadcast</p>
-                              <p className="text-xs text-white leading-relaxed font-bold">{msg.text}</p>
+                          ) : (
+                            <div className="bg-gradient-to-br from-[#1b1532]/90 to-[#0f0a1f]/90 border border-purple-500/40 px-5 py-3 rounded-2xl shadow-[0_0_20px_rgba(168,85,247,0.15)] max-w-xl w-full flex items-center gap-4">
+                              <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 shrink-0 shadow-inner">
+                                <Bell className="w-5 h-5 animate-pulse" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-0.5">System Broadcast</p>
+                                <p className="text-xs text-white leading-relaxed font-bold">{msg.text}</p>
+                              </div>
+                              <span className="text-[10px] text-purple-400/50 font-mono shrink-0 ml-2">{msg.time}</span>
                             </div>
-                            <span className="text-[10px] text-purple-400/50 font-mono shrink-0 ml-2">{msg.time}</span>
-                          </div>
+                          )
                         ) : (
                           <>
                             <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">

@@ -89,7 +89,9 @@ service cloud.firestore {
          request.resource.data.get('rubies', 0) >= 0 &&
          request.resource.data.get('rubies', 0) <= resource.data.get('rubies', 0)
         ) ||
-        // Case 2: Staff member updating someone else's profile (moderation / ranking)
+        // Case 2: Any signed-in user can increment or decrement the likes count of another user's profile
+        (request.auth.uid != profileId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])) ||
+        // Case 3: Staff member updating someone else's profile (moderation / ranking)
         (request.auth.uid != profileId && (
           isDeveloper() || 
           (

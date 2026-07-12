@@ -1838,7 +1838,7 @@ export default function ProfileModal({
         
         {/* Background Effect Layer */}
         {currentEffectClass && (
-          <div className={`absolute inset-0 pointer-events-none z-0 ${currentEffectClass}`} />
+          <div className={`absolute top-48 inset-x-0 bottom-0 pointer-events-none z-0 ${currentEffectClass}`} />
         )}
         
         {/* About Me Editor Modal */}
@@ -2454,7 +2454,7 @@ export default function ProfileModal({
 
         {/* Top Controls Left */}
         {mode === "view" && (
-          <div className="absolute top-4 left-4 z-10 flex gap-2 items-center flex-wrap max-w-[60vw]">
+          <div className="absolute top-4 left-4 z-20 flex gap-2 items-center flex-wrap max-w-[60vw]">
             <button 
               onClick={handleLike}
               className={`px-3 py-1.5 rounded-full flex items-center gap-2 text-sm font-bold shadow-lg transition-all ${
@@ -2495,7 +2495,7 @@ export default function ProfileModal({
           </div>
         )}
 
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <div className="absolute top-4 right-4 z-20 flex gap-2">
           {mode === "view" && isOwnProfile && (
             <button 
               onClick={onEdit}
