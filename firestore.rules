@@ -247,5 +247,15 @@ service cloud.firestore {
     match /profile_visits/{visitId} {
       allow read, write: if isSignedIn();
     }
+
+    match /stories/{storyId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == storyId;
+      allow delete: if isSignedIn() && (
+        request.auth.uid == storyId ||
+        isStaffUser(request.auth.uid) ||
+        isDeveloper()
+      );
+    }
   }
 }

@@ -7,9 +7,10 @@ import {
   Palette, CreditCard, Star, Lock, Unlock, Coins, Hand, Type, Newspaper,
   Vote, Gift, ArrowRightLeft, Dices, UserCog, Info, Ban
 } from "lucide-react";
-import { UserProfile, Message, OnlineUser, RANKS_INFO, mapDbRankToUserRank, UserRank, getLevelFromXp } from "../types";
+import { UserProfile, Message, OnlineUser, RANKS_INFO, mapDbRankToUserRank, UserRank, getLevelFromXp, Story } from "../types";
 import ProfileModal, { getProfileBorderStyle } from "./ProfileModal";
-import { supabase, getSyncedDate } from "../lib/supabase";
+import { supabase, getSyncedDate, firestore } from "../lib/supabase";
+import { collection, onSnapshot } from "firebase/firestore";
 import { uploadImageToStorage } from "../lib/storage";
 
 // Feature Modals
@@ -88,6 +89,9 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
 
   const [hiddenMessages, setHiddenMessages] = useState<Set<string>>(new Set());
   const [activeMessageMenu, setActiveMessageMenu] = useState<string | null>(null);
+
+  // Stories real-time state map
+  const [activeStories, setActiveStories] = useState<{[userId: string]: Story}>({});
 
   // Profile Modal State
   const [profileTarget, setProfileTarget] = useState<UserProfile | null>(null);
@@ -264,6 +268,30 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
       playSynthSound(synthKey);
     }
   };
+
+  // Real-time listener for user stories to display indicator rings
+  useEffect(() => {
+    const storiesCol = collection(firestore, 'stories');
+    const unsubscribe = onSnapshot(storiesCol, (snapshot) => {
+      const storiesMap: {[userId: string]: Story} = {};
+      const now = Date.now();
+      snapshot.forEach((doc) => {
+        const storyData = doc.data() as Story;
+        try {
+          const storyTime = new Date(storyData.created_at).getTime();
+          if (now - storyTime < 24 * 60 * 60 * 1000) {
+            storiesMap[storyData.user_id] = storyData;
+          }
+        } catch (e) {
+          storiesMap[storyData.user_id] = storyData;
+        }
+      });
+      setActiveStories(storiesMap);
+    }, (error) => {
+      console.error("Error listening to stories:", error);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -3185,9 +3213,17 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="relative">
-                                <div className="w-9 h-9 rounded-none bg-purple-950/80 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
-                                  <img src={u.pfp} alt={u.username} className="w-full h-full rounded-none object-cover" />
-                                </div>
+                                {activeStories[u.id] ? (
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[2px] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                                    <div className="w-full h-full rounded-full overflow-hidden border border-[#0c0919]">
+                                      <img src={u.pfp} alt={u.username} className="w-full h-full rounded-full object-cover" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-9 h-9 rounded-none bg-purple-950/80 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
+                                    <img src={u.pfp} alt={u.username} className="w-full h-full rounded-none object-cover" />
+                                  </div>
+                                )}
                                 <div className="absolute bottom-0 right-0">
                                   {renderStatusBadge(u.status || 'online', "w-2.5 h-2.5 border-2 border-[#0c0919] rounded-full")}
                                 </div>
@@ -3249,9 +3285,17 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="relative">
-                                <div className="w-9 h-9 rounded-none bg-purple-950/80 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
-                                  <img src={u.pfp} alt={u.username} className="w-full h-full rounded-none object-cover" />
-                                </div>
+                                {activeStories[u.id] ? (
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[2px] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                                    <div className="w-full h-full rounded-full overflow-hidden border border-[#0c0919]">
+                                      <img src={u.pfp} alt={u.username} className="w-full h-full rounded-full object-cover" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-9 h-9 rounded-none bg-purple-950/80 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
+                                    <img src={u.pfp} alt={u.username} className="w-full h-full rounded-none object-cover" />
+                                  </div>
+                                )}
                                 <div className="absolute bottom-0 right-0">
                                   {renderStatusBadge(u.status || 'offline', "w-2.5 h-2.5 border-2 border-[#0c0919] rounded-full")}
                                 </div>
@@ -3346,9 +3390,17 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="relative">
-                                  <div className="w-8 h-8 rounded-none bg-purple-950/80 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
-                                    <img src={u.pfp} alt={u.username} className="w-full h-full rounded-none object-cover" />
-                                  </div>
+                                  {activeStories[u.id] ? (
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[1.5px] flex items-center justify-center shrink-0 shadow-[0_0_6px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                                      <div className="w-full h-full rounded-full overflow-hidden border border-[#0c0919]">
+                                        <img src={u.pfp} alt={u.username} className="w-full h-full rounded-full object-cover" />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-none bg-purple-950/80 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
+                                      <img src={u.pfp} alt={u.username} className="w-full h-full rounded-none object-cover" />
+                                    </div>
+                                  )}
                                   <span className={`absolute bottom-0 right-0 w-2 h-2 border border-[#0c0919] rounded-full ${isOnline ? "bg-emerald-500" : "bg-gray-500"}`} />
                                 </div>
                                 <div className="min-w-0">

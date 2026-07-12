@@ -4,12 +4,12 @@ import {
   MessageSquare, Star, Trash2, Shield, Languages, MapPin, Calendar, Clock,
   Users, Globe, Share2, Edit3, TrendingUp, Lock, TrendingUp as ShareIcon,
   Sparkles, Frame, CreditCard, Palette, Paintbrush, Zap,
-  LayoutGrid, Ban, ChevronLeft, ChevronRight, Check, Layout, Move
+  LayoutGrid, Ban, ChevronLeft, ChevronRight, Check, Layout, Move, Plus, PlusCircle
 } from "lucide-react";
-import { UserProfile, Rating, UserRank, RANKS_INFO, getLevelFromXp, ProfileLayout, ElementLayout } from "../types";
+import { UserProfile, Rating, UserRank, RANKS_INFO, getLevelFromXp, ProfileLayout, ElementLayout, Story } from "../types";
 import GalleryViewModal from "./GalleryViewModal";
 import { Image as ImageIcon } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { supabase, getSyncedDate } from "../lib/supabase";
 import { uploadImageToStorage } from "../lib/storage";
 
 const EFFECTS_STYLE = `
@@ -793,6 +793,125 @@ const DEFAULT_LAYOUT: ProfileLayout = {
   aboutMe: { x: 24, y: 380, width: 400, height: 180, scale: 1, rotation: 0 }
 };
 
+const STORY_GRADIENTS = [
+  { id: 'sunset', name: 'Sunset', class: 'bg-gradient-to-tr from-orange-600 via-pink-600 to-purple-800' },
+  { id: 'mint', name: 'Cosmic Mint', class: 'bg-gradient-to-tr from-slate-900 via-[#0a2523] to-[#0d0f1a]' },
+  { id: 'indigo', name: 'Midnight Indigo', class: 'bg-gradient-to-tr from-purple-900 to-indigo-900' },
+  { id: 'cyberpunk', name: 'Cyberpunk', class: 'bg-gradient-to-br from-[#12071f] via-[#240a34] to-[#071b29]' },
+  { id: 'rose', name: 'Dark Rose', class: 'bg-gradient-to-tr from-pink-600 via-purple-600 to-indigo-600' },
+];
+
+interface StoryViewerProps {
+  story: Story;
+  isOwnProfile: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+}
+
+function StoryViewerOverlay({ story, isOwnProfile, onClose, onDelete }: StoryViewerProps) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    setProgress(0);
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          onClose();
+          return 100;
+        }
+        return prev + 1;
+      });
+    }, 50); // 50 * 100 = 5000ms (5 seconds)
+
+    return () => clearInterval(interval);
+  }, [story.id, onClose]);
+
+  const timeAgo = (() => {
+    try {
+      const elapsedMs = Date.now() - new Date(story.created_at).getTime();
+      const elapsedHours = Math.floor(elapsedMs / 3600000);
+      if (elapsedHours < 1) {
+        const mins = Math.max(1, Math.floor(elapsedMs / 60000));
+        return `${mins}m ago`;
+      }
+      return `${elapsedHours}h ago`;
+    } catch {
+      return "Just now";
+    }
+  })();
+
+  return (
+    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[150] flex items-center justify-center p-0 md:p-4" onClick={onClose}>
+      <div className="w-full max-w-sm h-full md:h-[80vh] md:max-h-[680px] relative overflow-hidden md:rounded-2xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className={`absolute inset-0 z-0 ${story.image_url ? "bg-black" : (story.bg_color || "bg-gradient-to-tr from-purple-900 to-indigo-900")}`} />
+        
+        {/* Progress Bar */}
+        <div className="absolute top-3 inset-x-3 h-1 flex gap-1 z-30">
+          <div className="flex-1 bg-white/20 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-white transition-all duration-50 ease-linear" 
+              style={{ width: `${progress}%` }} 
+            />
+          </div>
+        </div>
+
+        {/* Header */}
+        <div className="absolute top-6 inset-x-4 flex items-center justify-between z-30 bg-black/40 backdrop-blur-xs p-2 rounded-xl border border-white/5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-white/50 p-0.5">
+              <img src={story.pfp} className="w-full h-full object-cover rounded-full" alt={story.username} />
+            </div>
+            <div className="text-left">
+              <p className="text-white text-xs font-black tracking-wide leading-none">{story.username}</p>
+              <p className="text-white/60 text-[9px] uppercase tracking-widest font-bold leading-none mt-1">{timeAgo}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isOwnProfile && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                className="p-1 rounded-full bg-black/40 hover:bg-rose-600/40 text-white transition-all cursor-pointer"
+                title="Delete Story"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full bg-black/40 hover:bg-white/10 text-white transition-all cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 flex flex-col items-center justify-center relative select-none px-6 z-10">
+          {story.image_url ? (
+            <>
+              <img src={story.image_url} className="absolute inset-0 w-full h-full object-cover z-0" alt="story" />
+              {story.text && (
+                <div className="relative z-10 w-full text-center px-4 py-3 bg-black/60 backdrop-blur-xs rounded-xl border border-white/10 shadow-lg mt-auto mb-10">
+                  <p className="text-white text-sm font-black tracking-tight leading-snug drop-shadow-md">
+                    {story.text}
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-full text-center max-w-xs break-words relative z-10">
+              <p className="text-white text-xl font-black tracking-tight leading-snug drop-shadow-lg">
+                {story.text}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileModal({ 
   targetUser, 
   currentUser, 
@@ -810,6 +929,12 @@ export default function ProfileModal({
   const isBotUser = targetUser.id === "musicvibe-bot-system-id" || targetUser.isSystem || targetUser.rank === "BOT" || targetUser.username === "System";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  // Instagram Story Feature States
+  const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [isStoryLoading, setIsStoryLoading] = useState(false);
+  const [showStoryViewer, setShowStoryViewer] = useState(false);
+  const [showStoryCreator, setShowStoryCreator] = useState(false);
 
   const [isEditingAbout, setIsEditingAbout] = useState(false);
   const [isEditingMood, setIsEditingMood] = useState(false);
@@ -943,6 +1068,95 @@ export default function ProfileModal({
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [activeDragId, activeResizeId, dragOffset, initialResizeDims]);
+
+  const fetchTargetUserStory = async () => {
+    setIsStoryLoading(true);
+    try {
+      const { data } = await supabase
+        .from('stories')
+        .select('*')
+        .eq('id', targetUser.id)
+        .single();
+      
+      if (data) {
+        const storyTime = new Date(data.created_at).getTime();
+        const isExpired = Date.now() - storyTime > 86400000; // 24 hours
+        if (!isExpired) {
+          setActiveStory(data as Story);
+        } else {
+          setActiveStory(null);
+        }
+      } else {
+        setActiveStory(null);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch user story:", err);
+      setActiveStory(null);
+    } finally {
+      setIsStoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTargetUserStory();
+  }, [targetUser.id]);
+
+  // Story Creator state variables
+  const [storyText, setStoryText] = useState("");
+  const [storyImage, setStoryImage] = useState<File | null>(null);
+  const [storyImagePreview, setStoryImagePreview] = useState("");
+  const [selectedBgGradient, setSelectedBgGradient] = useState('bg-gradient-to-tr from-orange-600 via-pink-600 to-purple-800');
+  const [isPublishingStory, setIsPublishingStory] = useState(false);
+  const storyImageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleStoryImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setStoryImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setStoryImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePublishStory = async () => {
+    if (!storyText.trim() && !storyImage) return;
+    setIsPublishingStory(true);
+    try {
+      let imageUrl = "";
+      if (storyImage) {
+        imageUrl = await uploadImageToStorage(storyImage, 'stories', storyImage.name);
+      }
+
+      const storyPayload: Story = {
+        id: currentUser.id,
+        user_id: currentUser.id,
+        username: currentUser.username,
+        pfp: currentUser.pfp,
+        text: storyText.trim() || undefined,
+        image_url: imageUrl || undefined,
+        bg_color: storyImage ? undefined : selectedBgGradient,
+        created_at: getSyncedDate().toISOString()
+      };
+
+      await supabase.from('stories').insert(storyPayload);
+      
+      // Update local states
+      setActiveStory(storyPayload);
+      setShowStoryCreator(false);
+      
+      // Reset inputs
+      setStoryText("");
+      setStoryImage(null);
+      setStoryImagePreview("");
+    } catch (err) {
+      console.error("Failed to publish story:", err);
+    } finally {
+      setIsPublishingStory(false);
+    }
+  };
 
   const applyStyleTag = (openTag: string, closeTag: string) => {
     if (!textareaRef.current) return;
@@ -1228,8 +1442,17 @@ export default function ProfileModal({
               <img src={targetUser.banner} className="w-full h-full object-cover" alt="Banner" />
             )}
             {/* Avatar */}
-            <div className="absolute bottom-[-20px] left-1/2 -translate-x-1/2 w-16 h-16 rounded-none border-4 border-[#161226] bg-[#090714] overflow-hidden">
-              <img src={targetUser.pfp} className="w-full h-full object-cover" alt={targetUser.username} />
+            <div 
+              onClick={activeStory ? () => setShowStoryViewer(true) : undefined}
+              className={`absolute bottom-[-24px] left-1/2 -translate-x-1/2 w-[72px] h-[72px] flex items-center justify-center transition-all ${
+                activeStory 
+                  ? "bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[3px] rounded-full cursor-pointer hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(249,115,22,0.4)] z-10" 
+                  : "w-16 h-16 rounded-none border-4 border-[#161226] bg-[#090714] overflow-hidden"
+              }`}
+            >
+              <div className={`w-full h-full overflow-hidden ${activeStory ? "rounded-full border-2 border-[#161226]" : "rounded-none"}`}>
+                <img src={targetUser.pfp} className="w-full h-full object-cover" alt={targetUser.username} />
+              </div>
             </div>
           </div>
           
@@ -1276,13 +1499,22 @@ export default function ProfileModal({
             </button>
             
             {isOwnProfile && (
-              <button 
-                onClick={onEdit}
-                className="w-full text-left px-4 py-3 text-sm text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none"
-              >
-                <Edit2 className="w-4 h-4 text-purple-400" />
-                Edit
-              </button>
+              <>
+                <button 
+                  onClick={() => setShowStoryCreator(true)}
+                  className="w-full text-left px-4 py-3 text-sm font-bold text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none"
+                >
+                  <PlusCircle className="w-4 h-4 text-orange-500 shrink-0 animate-pulse" />
+                  <span className="bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 bg-clip-text text-transparent">Post a Story</span>
+                </button>
+                <button 
+                  onClick={onEdit}
+                  className="w-full text-left px-4 py-3 text-sm text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none"
+                >
+                  <Edit2 className="w-4 h-4 text-purple-400" />
+                  Edit
+                </button>
+              </>
             )}
 
             {(!targetUser.profile_locked || isOwnProfile) && !isBotUser && (
@@ -2497,12 +2729,22 @@ export default function ProfileModal({
 
         <div className="absolute top-4 right-4 z-20 flex gap-2">
           {mode === "view" && isOwnProfile && (
-            <button 
-              onClick={onEdit}
-              className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
-            >
-              <Edit2 className="w-5 h-5" />
-            </button>
+            <>
+              <button 
+                onClick={() => setShowStoryCreator(true)}
+                className="p-2 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 text-white hover:scale-105 hover:opacity-95 transition-all shadow-[0_0_15px_rgba(249,115,22,0.4)]"
+                title="Post a Story"
+              >
+                <PlusCircle className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={onEdit}
+                className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+                title="Edit Profile"
+              >
+                <Edit2 className="w-5 h-5" />
+              </button>
+            </>
           )}
           {mode === "edit" && (
             <>
@@ -2552,14 +2794,23 @@ export default function ProfileModal({
           {/* Avatar Area */}
           <div className="absolute bottom-[-40px] left-8 flex items-end gap-5 z-10">
             <div className="relative group">
-              <div className="w-32 h-32 rounded-none border-4 border-[#0d0a1c] bg-[#161226] overflow-hidden shadow-2xl relative">
-                <img src={targetUser.pfp} className="w-full h-full object-cover" alt={targetUser.username} />
-                {isUploadingPfp && (
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 z-10">
-                    <span className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></span>
-                    <span className="text-[10px] font-black uppercase text-purple-200">Uploading</span>
-                  </div>
-                )}
+              <div 
+                onClick={activeStory ? () => setShowStoryViewer(true) : undefined}
+                className={`w-32 h-32 flex items-center justify-center transition-all ${
+                  activeStory 
+                    ? "bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[4px] rounded-full cursor-pointer hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(249,115,22,0.5)] relative" 
+                    : "w-32 h-32 rounded-none border-4 border-[#0d0a1c] bg-[#161226] overflow-hidden shadow-2xl relative"
+                }`}
+              >
+                <div className={`w-full h-full overflow-hidden ${activeStory ? "rounded-full border-4 border-[#161226]" : "rounded-none"}`}>
+                  <img src={targetUser.pfp} className="w-full h-full object-cover" alt={targetUser.username} />
+                  {isUploadingPfp && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 z-10">
+                      <span className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></span>
+                      <span className="text-[10px] font-black uppercase text-purple-200">Uploading</span>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {mode === "edit" && (
@@ -3276,6 +3527,154 @@ export default function ProfileModal({
             </div>
           );
         })()}
+
+        {/* Instagram Story Creator Modal */}
+        {showStoryCreator && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[160] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#120e24] border border-purple-500/30 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-in zoom-in-95 duration-150 text-left flex flex-col max-h-[90vh] overflow-y-auto custom-scrollbar">
+              <button 
+                onClick={() => {
+                  setShowStoryCreator(false);
+                  setStoryText("");
+                  setStoryImage(null);
+                  setStoryImagePreview("");
+                }}
+                className="absolute top-4 right-4 text-purple-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-3 mb-5 border-b border-purple-950/40 pb-3">
+                <PlusCircle className="w-6 h-6 text-orange-500 animate-pulse" />
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Create a Story</h3>
+                  <p className="text-[9px] text-purple-400 uppercase tracking-widest font-bold">Only 1 active story at a time</p>
+                </div>
+              </div>
+
+              {/* Text Input */}
+              <div className="mb-4">
+                <label className="text-[10px] text-purple-300 uppercase font-black tracking-widest block mb-1.5">Story Text</label>
+                <textarea
+                  value={storyText}
+                  onChange={(e) => setStoryText(e.target.value)}
+                  placeholder="What's on your mind? (Optional if uploading an image)"
+                  className="w-full bg-purple-950/20 border border-purple-900/30 rounded-xl px-4 py-3 text-xs text-white placeholder-purple-500 focus:outline-none focus:border-purple-500 transition-colors h-24 resize-none"
+                />
+              </div>
+
+              {/* Image Input */}
+              <div className="mb-5">
+                <label className="text-[10px] text-purple-300 uppercase font-black tracking-widest block mb-1.5">Story Image (Optional)</label>
+                {storyImagePreview ? (
+                  <div className="relative rounded-xl overflow-hidden aspect-[4/5] w-full border border-purple-900/40 max-h-60 mb-2">
+                    <img src={storyImagePreview} className="w-full h-full object-cover" alt="Story preview" />
+                    <button
+                      onClick={() => {
+                        setStoryImage(null);
+                        setStoryImagePreview("");
+                      }}
+                      className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => storyImageInputRef.current?.click()}
+                    className="w-full border border-dashed border-purple-900/40 hover:border-purple-500/50 rounded-xl py-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-purple-950/10 group"
+                  >
+                    <ImageIcon className="w-8 h-8 text-purple-400 group-hover:text-purple-300 transition-colors" />
+                    <span className="text-xs text-purple-300 font-bold">Upload an Image</span>
+                    <span className="text-[10px] text-purple-400 uppercase tracking-wider">Supports PNG, JPEG, GIF</span>
+                    <input 
+                      type="file"
+                      ref={storyImageInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleStoryImageChange}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Background Swatches */}
+              {!storyImagePreview && (
+                <div className="mb-6">
+                  <label className="text-[10px] text-purple-300 uppercase font-black tracking-widest block mb-2">Background Theme</label>
+                  <div className="flex gap-2.5 items-center">
+                    {STORY_GRADIENTS.map((gradient) => (
+                      <button
+                        key={gradient.id}
+                        onClick={() => setSelectedBgGradient(gradient.class)}
+                        className={`w-8 h-8 rounded-full transition-all flex items-center justify-center relative shadow-md ${gradient.class} ${
+                          selectedBgGradient === gradient.class 
+                            ? "ring-2 ring-purple-400 ring-offset-2 ring-offset-[#120e24] scale-110" 
+                            : "hover:scale-105"
+                        }`}
+                        title={gradient.name}
+                      >
+                        {selectedBgGradient === gradient.class && (
+                          <Check className="w-3.5 h-3.5 text-white drop-shadow-md" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2.5 border-t border-purple-950/40 pt-4 mt-auto">
+                <button
+                  disabled={isPublishingStory}
+                  onClick={() => {
+                    setShowStoryCreator(false);
+                    setStoryText("");
+                    setStoryImage(null);
+                    setStoryImagePreview("");
+                  }}
+                  className="flex-1 py-2 px-4 bg-purple-950/30 hover:bg-purple-950/50 text-purple-300 text-xs font-bold rounded-xl transition-colors text-center disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isPublishingStory || (!storyText.trim() && !storyImage)}
+                  onClick={handlePublishStory}
+                  className="flex-1 py-2 px-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white text-xs font-black rounded-xl transition-all shadow-lg text-center uppercase tracking-wider disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isPublishingStory ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>Sharing...</span>
+                    </>
+                  ) : (
+                    <span>Share Story</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Instagram Story Viewer Modal */}
+        {showStoryViewer && activeStory && (
+          <StoryViewerOverlay
+            story={activeStory}
+            isOwnProfile={isOwnProfile}
+            onClose={() => setShowStoryViewer(false)}
+            onDelete={async () => {
+              if (window.confirm("Are you sure you want to delete your story?")) {
+                try {
+                  await supabase.from('stories').delete().eq('id', targetUser.id);
+                  setActiveStory(null);
+                  setShowStoryViewer(false);
+                } catch (err) {
+                  console.error("Failed to delete story:", err);
+                }
+              }
+            }}
+          />
+        )}
 
       </div>
     </div>

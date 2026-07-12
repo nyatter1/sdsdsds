@@ -269,3 +269,14 @@ export const getLevelFromXp = (xp: number): { level: number; xpInCurrentLevel: n
     remainingXp
   };
 };
+
+export interface Story {
+  id: string; // The user's profile ID (since they can only have 1 active story at a time)
+  user_id: string;
+  username: string;
+  pfp: string;
+  text?: string;
+  image_url?: string;
+  bg_color?: string; // Optional background color or gradient for text-only stories
+  created_at: string;
+}

@@ -16,7 +16,11 @@ import {
   updateDoc, 
   deleteDoc, 
   collection, 
-  onSnapshot 
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  limit
 } from "firebase/firestore";
 
 // Your web app's Firebase configuration explicitly provided by user
@@ -32,8 +36,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const firestore = getFirestore(app);
+export const auth = getAuth(app);
+export const firestore = getFirestore(app);
 
 let serverTimeOffset = 0;
 
@@ -234,10 +238,42 @@ class QueryBuilder {
 
       // --- SELECT ---
       if (this.method === "select") {
-        const qSnap = await getDocs(colRef);
-        let list = qSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        let matched: any[] = [];
 
-        let matched = list.filter(row => {
+        // Optimization 1: Direct document fetch if filtering by ID (primary key)
+        const idFilter = this.filters.find(f => f.op === "eq" && (f.field === "id" || f.field === "userId"));
+        if (idFilter && typeof idFilter.value === "string" && idFilter.value !== "") {
+          const docSnap = await getDoc(doc(firestore, this.table, idFilter.value));
+          if (docSnap.exists()) {
+            matched = [{ id: docSnap.id, ...docSnap.data() }];
+          }
+        } else {
+          // Optimization 2: Use Firestore native queries for all 'eq' filters
+          const clauses: any[] = [];
+          for (const f of this.filters) {
+            if (f.op === "eq") {
+              clauses.push(where(f.field, "==", f.value));
+            }
+          }
+
+          // Optimization 3: Only add native orderBy if there's no complex multi-filter to avoid missing index errors
+          if (this.orderCol && clauses.length <= 1) {
+            clauses.push(orderBy(this.orderCol, this.isAscending ? "asc" : "desc"));
+          }
+
+          // Optimization 4: Native limit
+          if (this.limitCount !== null) {
+            clauses.push(limit(this.limitCount));
+          }
+
+          const nativeQuery = query(colRef, ...clauses);
+          const qSnap = await getDocs(nativeQuery);
+          matched = qSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        }
+
+        // Safety/Fallback Client-side Filtering & Sorting
+        // This ensures compatibility with any operators not handled natively (like neq, ilike, or, or custom sort)
+        matched = matched.filter(row => {
           if (this.filters && this.filters.length > 0) {
             for (const f of this.filters) {
               const val = row[f.field];
@@ -275,6 +311,7 @@ class QueryBuilder {
           return true;
         });
 
+        // If client-side sorting is needed (e.g. native sorting was skipped due to index protection)
         if (this.orderCol) {
           matched.sort((a, b) => {
             const valA = a[this.orderCol!];
@@ -292,7 +329,7 @@ class QueryBuilder {
           });
         }
 
-        if (this.limitCount !== undefined && this.limitCount !== null) {
+        if (this.limitCount !== null) {
           matched = matched.slice(0, Number(this.limitCount));
         }
 
@@ -365,7 +402,15 @@ class QueryBuilder {
           return { data: null, error: { message: "Update method requires filters (eq) to protect data" } };
         }
 
-        const qSnap = await getDocs(colRef);
+        // Optimization: Use native where filters to fetch only records to update
+        const clauses: any[] = [];
+        for (const f of this.filters) {
+          if (f.op === "eq") {
+            clauses.push(where(f.field, "==", f.value));
+          }
+        }
+        const nativeQuery = query(colRef, ...clauses);
+        const qSnap = await getDocs(nativeQuery);
         const list = qSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         const updatedItems: any[] = [];
 
@@ -382,7 +427,8 @@ class QueryBuilder {
 
           if (matchesAllFilters) {
             const updatedRow = { ...row, ...this.payload };
-            await setDoc(doc(firestore, this.table, row.id), sanitizeForFirestore(updatedRow));
+            // Update ONLY specified fields using updateDoc to maintain exact Firestore rule compatibility
+            await updateDoc(doc(firestore, this.table, row.id), sanitizeForFirestore(this.payload));
             updatedItems.push(updatedRow);
           }
         }
@@ -399,7 +445,15 @@ class QueryBuilder {
           return { data: null, error: { message: "Delete method requires filters to prevent complete wipe" } };
         }
 
-        const qSnap = await getDocs(colRef);
+        // Optimization: Use native where filters to fetch only records to delete
+        const clauses: any[] = [];
+        for (const f of this.filters) {
+          if (f.op === "eq") {
+            clauses.push(where(f.field, "==", f.value));
+          }
+        }
+        const nativeQuery = query(colRef, ...clauses);
+        const qSnap = await getDocs(nativeQuery);
         const list = qSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         const deletedItems: any[] = [];
 
