@@ -783,6 +783,7 @@ interface ProfileModalProps {
   onMention: (username: string) => void;
   onUpdate: (updatedUser: Partial<UserProfile>) => void;
   ranksInfo?: Record<string, { name: string; icon: string; priority: number; isStaff?: boolean }>;
+  initialShowStoryViewer?: boolean;
 }
 
 const DEFAULT_LAYOUT: ProfileLayout = {
@@ -923,6 +924,7 @@ export default function ProfileModal({
   onUpdate,
   ranksInfo,
   soundsEnabled = true,
+  initialShowStoryViewer = false,
 }: ProfileModalProps) {
   const finalRanksInfo = ranksInfo || RANKS_INFO;
   const isOwnProfile = targetUser.username === currentUser.username;
@@ -1100,6 +1102,12 @@ export default function ProfileModal({
   useEffect(() => {
     fetchTargetUserStory();
   }, [targetUser.id]);
+
+  useEffect(() => {
+    if (initialShowStoryViewer && activeStory) {
+      setShowStoryViewer(true);
+    }
+  }, [initialShowStoryViewer, activeStory]);
 
   // Story Creator state variables
   const [storyText, setStoryText] = useState("");
@@ -1501,7 +1509,10 @@ export default function ProfileModal({
             {isOwnProfile && (
               <>
                 <button 
-                  onClick={() => setShowStoryCreator(true)}
+                  onClick={() => {
+                    onView();
+                    setShowStoryCreator(true);
+                  }}
                   className="w-full text-left px-4 py-3 text-sm font-bold text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none"
                 >
                   <PlusCircle className="w-4 h-4 text-orange-500 shrink-0 animate-pulse" />
@@ -2055,7 +2066,7 @@ export default function ProfileModal({
   
   const outerBorderClass = `relative w-full max-w-lg bg-[#0d0a1c] rounded-none overflow-hidden flex flex-col max-h-[90vh] ${
     currentBorderId !== "none" ? `profile-border-${currentBorderId}` : 'border border-purple-900/40 shadow-[0_0_50px_rgba(0,0,0,0.5)]'
-  } ${targetUser.profile_effect === 'sepia' ? 'profile-effect-sepia' : ''} ${targetUser.email === 'dev@gmail.com' && mode === 'view' ? 'animate-gentle-shake' : ''}`;
+  } ${targetUser.profile_effect === 'sepia' ? 'profile-effect-sepia' : ''} ${targetUser.email === 'dev@gmail.com' && mode === 'view' && !showStoryViewer && !showStoryCreator ? 'animate-gentle-shake' : ''}`;
   
   const currentEffectClass = targetUser.profile_effect && targetUser.profile_effect !== 'none' 
     ? (targetUser.profile_effect === 'sepia' ? '' : `profile-effect-${targetUser.profile_effect}`) 

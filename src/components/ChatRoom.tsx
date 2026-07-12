@@ -96,6 +96,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
   // Profile Modal State
   const [profileTarget, setProfileTarget] = useState<UserProfile | null>(null);
   const [profileMode, setProfileMode] = useState<"quick" | "view" | "edit">("quick");
+  const [profileStoryView, setProfileStoryView] = useState(false);
 
   // Dynamic custom ranks, announcements, notifications, and admin state
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -1326,9 +1327,10 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     setIsEmojiPickerOpen(false);
   };
 
-  const handleProfileClick = (target: UserProfile, mode: "quick" | "view" | "edit" = "quick") => {
+  const handleProfileClick = (target: UserProfile, mode: "quick" | "view" | "edit" = "quick", storyView: boolean = false) => {
     setProfileTarget(target);
     setProfileMode(mode);
+    setProfileStoryView(storyView);
 
     if (target && target.id !== user.id && user.id && user.id !== "system" && !user.isSystem) {
       supabase.from("profile_visits").insert({
@@ -3214,7 +3216,13 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="relative">
                                 {activeStories[u.id] ? (
-                                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[2px] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                                  <div 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleProfileClick(u, "view", true);
+                                    }}
+                                    className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[2px] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                                  >
                                     <div className="w-full h-full rounded-full overflow-hidden border border-[#0c0919]">
                                       <img src={u.pfp} alt={u.username} className="w-full h-full rounded-full object-cover" />
                                     </div>
@@ -3286,7 +3294,13 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="relative">
                                 {activeStories[u.id] ? (
-                                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[2px] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                                  <div 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleProfileClick(u, "view", true);
+                                    }}
+                                    className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[2px] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                                  >
                                     <div className="w-full h-full rounded-full overflow-hidden border border-[#0c0919]">
                                       <img src={u.pfp} alt={u.username} className="w-full h-full rounded-full object-cover" />
                                     </div>
@@ -3391,7 +3405,13 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="relative">
                                   {activeStories[u.id] ? (
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[1.5px] flex items-center justify-center shrink-0 shadow-[0_0_6px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                                    <div 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleProfileClick(u, "view", true);
+                                      }}
+                                      className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[1.5px] flex items-center justify-center shrink-0 shadow-[0_0_6px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                                    >
                                       <div className="w-full h-full rounded-full overflow-hidden border border-[#0c0919]">
                                         <img src={u.pfp} alt={u.username} className="w-full h-full rounded-full object-cover" />
                                       </div>
@@ -3443,11 +3463,15 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
           targetUser={profileTarget}
           currentUser={user}
           mode={profileMode}
-          onClose={() => setProfileTarget(null)}
+          onClose={() => {
+            setProfileTarget(null);
+            setProfileStoryView(false);
+          }}
           onEdit={() => setProfileMode("edit")}
           onView={() => setProfileMode("view")}
           onMention={handleMention}
           ranksInfo={allRanksInfo}
+          initialShowStoryViewer={profileStoryView}
           onUpdate={async (updated: any) => {
             const mapped: any = {};
             if ('username' in updated) mapped.username = updated.username;
