@@ -8,10 +8,9 @@ import {
 } from "lucide-react";
 import { UserProfile, Rating, UserRank, RANKS_INFO, getLevelFromXp, ProfileLayout, ElementLayout } from "../types";
 import GalleryViewModal from "./GalleryViewModal";
-import { Image as ImageIcon, Music } from "lucide-react";
-import BackgroundMusicPlayer from "./BackgroundMusicPlayer";
+import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { uploadImageToStorage, uploadAudioToStorage } from "../lib/storage";
+import { uploadImageToStorage } from "../lib/storage";
 
 const EFFECTS_STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Lobster&family=Pacifico&family=Dancing+Script&family=Satisfy&family=Sacramento&family=Great+Vibes&family=Yellowtail&family=Cookie&family=Kaushan+Script&family=Shadows+Into+Light&family=Amatic+SC&family=Special+Elite&family=Creepster&family=Bungee&family=Righteous&family=VT323&family=Press+Start+2P&family=Orbitron&family=Audiowide&family=Syncopate&family=Rajdhani&family=Montserrat&family=Oswald&family=Raleway&family=Abril+Fatface&family=Cinzel&family=Lora&family=Merriweather&family=DM+Serif+Display&family=Poppins&family=Lexend&family=Syne&family=Unbounded&family=Inconsolata&family=Source+Code+Pro&display=swap');
@@ -817,11 +816,6 @@ export default function ProfileModal({
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
-  const [isEditingMusic, setIsEditingMusic] = useState(false);
-  const [tempMusicUrl, setTempMusicUrl] = useState(targetUser.profile_music_url || "");
-  const [tempMusicVisualizer, setTempMusicVisualizer] = useState(targetUser.profile_music_visualizer || "bars");
-  const musicInputRef = useRef<HTMLInputElement>(null);
-  const [isUploadingMusic, setIsUploadingMusic] = useState(false);
   const [isShowingRatings, setIsShowingRatings] = useState(false);
   const [isShowingGallery, setIsShowingGallery] = useState(false);
   const [showLevelStats, setShowLevelStats] = useState(false);
@@ -989,13 +983,6 @@ export default function ProfileModal({
   const [modReason, setModReason] = useState("");
   const [modDuration, setModDuration] = useState("60");
 
-
-  useEffect(() => {
-    if (isEditingMusic) {
-      setTempMusicUrl(targetUser.profile_music_url || "");
-      setTempMusicVisualizer(targetUser.profile_music_visualizer || "bars");
-    }
-  }, [isEditingMusic, targetUser.profile_music_url, targetUser.profile_music_visualizer]);
 
   useEffect(() => {
     setLikes(targetUser.likes || 0);
@@ -2047,28 +2034,6 @@ export default function ProfileModal({
                           </div>
                         </div>
 
-                        {/* Background music section */}
-                        <div className="p-2.5 rounded-lg bg-[#090714] border border-purple-900/20 space-y-2">
-                          <label className="text-[10px] font-bold text-purple-400 uppercase tracking-widest block">Background Music (BG:)</label>
-                          <p className="text-[9px] text-purple-300/60 leading-relaxed">Add a background sound URL (Youtube, MP3, MP4) that hides itself and plays when your bio is viewed.</p>
-                          <button
-                            onClick={() => {
-                              const url = prompt("Enter a background music URL (Youtube, MP3, MP4, etc.):");
-                              if (url) {
-                                setTempAbout(prev => {
-                                  const lines = prev.split('\n');
-                                  const filtered = lines.filter(line => !line.trim().startsWith('BG:'));
-                                  filtered.push(`BG:${url.trim()}`);
-                                  return filtered.join('\n');
-                                });
-                              }
-                            }}
-                            className="w-full py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-[10px] font-black rounded uppercase tracking-wider transition-colors"
-                          >
-                            Set BG Music Song
-                          </button>
-                        </div>
-
                         <div className="p-2.5 rounded-lg bg-[#090714] border border-purple-900/20 space-y-2">
                           <label className="text-[10px] font-bold text-purple-400 uppercase tracking-widest block">Media Embed Codes</label>
                           <p className="text-[9px] text-purple-300/60 leading-relaxed">Directly paste Youtube videos or Spotify links anywhere in your text. They will render beautifully as playable frames!</p>
@@ -2626,13 +2591,7 @@ export default function ProfileModal({
               <h2 className="text-2xl font-black text-white flex items-center gap-2">
                 {targetUser.username}
               </h2>
-              {targetUser.profile_music_url && (
-                <BackgroundMusicPlayer 
-                  musicUrl={targetUser.profile_music_url} 
-                  visualizerType={targetUser.profile_music_visualizer}
-                  soundsEnabled={soundsEnabled}
-                />
-              )}
+
               {targetUser.profile_locked ? (
                 <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_10px_rgba(239,68,68,0.15)] animate-pulse">
                   <Lock className="w-3 h-3" />
@@ -2801,14 +2760,6 @@ export default function ProfileModal({
                     <TrendingUp className="w-5 h-5 text-rose-400 shrink-0" />
                     <span className="text-sm font-bold text-white">Edit mood</span>
                   </button>
-                  <button 
-                    onClick={() => setIsEditingMusic(true)}
-                    className="w-full text-left py-4 px-2 flex items-center gap-4 hover:bg-white/[0.02] transition-all rounded-none"
-                  >
-                    <Music className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span className="text-sm font-bold text-white">Edit profile music</span>
-                  </button>
-
                   <button 
                     onClick={() => setIsEditingPassword(true)}
                     className="w-full text-left py-4 px-2 flex items-center gap-4 hover:bg-white/[0.02] transition-all rounded-none"
@@ -3325,141 +3276,7 @@ export default function ProfileModal({
             </div>
           );
         })()}
-        {/* Music Editor Modal */}
-        {isEditingMusic && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-md bg-[#161226] border border-purple-900/40 rounded-xl overflow-hidden shadow-2xl">
-              <div className="p-4 border-b border-purple-900/30 flex items-center justify-between">
-                <h4 className="text-sm font-bold text-white flex items-center gap-2"><Music className="w-4 h-4" /> Profile Music</h4>
-                <button onClick={() => setIsEditingMusic(false)} className="text-purple-400 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-4 space-y-4">
-                {/* Upload Section */}
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-purple-300 uppercase tracking-widest">Upload MP3 / Audio File</label>
-                  <input 
-                    type="file" 
-                    accept="audio/*"
-                    ref={musicInputRef}
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setIsUploadingMusic(true);
-                      try {
-                        const publicUrl = await uploadAudioToStorage(file, 'music', file.name);
-                        setTempMusicUrl(publicUrl);
-                      } catch (err) {
-                        console.error("Upload error:", err);
-                        alert("Failed to upload audio file. Falling back to default or manual link.");
-                      } finally {
-                        setIsUploadingMusic(false);
-                      }
-                    }}
-                    className="hidden" 
-                  />
-                  
-                  <div 
-                    onClick={() => !isUploadingMusic && musicInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-                      isUploadingMusic 
-                        ? "border-purple-500/30 bg-purple-500/5 pointer-events-none" 
-                        : "border-purple-500/20 hover:border-purple-500/50 bg-black/20 hover:bg-black/40"
-                    }`}
-                  >
-                    <Music className={`w-8 h-8 mx-auto mb-2 ${isUploadingMusic ? "text-purple-400 animate-pulse" : "text-purple-400/70"}`} />
-                    {isUploadingMusic ? (
-                      <div className="space-y-1">
-                        <p className="text-xs font-bold text-purple-300">Uploading file...</p>
-                        <p className="text-[10px] text-purple-400/50">Saving file and creating direct link...</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <p className="text-xs font-bold text-white">
-                          {tempMusicUrl ? "✓ Audio Selected (Click to change)" : "Choose an MP3 file"}
-                        </p>
-                        <p className="text-[10px] text-purple-400/50">Supports any size. Stored as a direct URL to save database space.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* OR Divider */}
-                <div className="relative flex py-1 items-center">
-                  <div className="flex-grow border-t border-purple-900/20"></div>
-                  <span className="flex-shrink mx-3 text-[10px] font-black text-purple-400/40 uppercase tracking-widest">or</span>
-                  <div className="flex-grow border-t border-purple-900/20"></div>
-                </div>
-
-                {/* Manual URL Input */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-purple-300 uppercase tracking-widest">Audio URL (.mp3)</label>
-                    {tempMusicUrl && (
-                      <button 
-                        onClick={() => setTempMusicUrl("")}
-                        className="text-[10px] text-red-400 hover:text-red-300 font-bold"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="https://example.com/song.mp3"
-                      value={tempMusicUrl}
-                      onChange={(e) => setTempMusicUrl(e.target.value)}
-                      className="w-full bg-black/40 border border-purple-500/30 rounded-lg px-3 py-2 text-sm text-white placeholder-purple-300/50 focus:outline-none focus:border-purple-500/80 transition-colors"
-                    />
-                    <p className="text-[10px] text-purple-300/70">Paste a direct link to an MP3 file (e.g. from Discord or your own server).</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-purple-300 uppercase tracking-widest">Visualizer Type</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['bars', 'wave', 'circle'].map(v => (
-                      <button
-                        key={v}
-                        onClick={() => setTempMusicVisualizer(v)}
-                        className={`py-2 rounded-lg text-xs font-bold uppercase transition-all ${tempMusicVisualizer === v ? "bg-purple-500 text-white" : "bg-white/5 text-white/50 hover:bg-white/10"}`}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {tempMusicUrl && (
-                  <div className="pt-2 border-t border-purple-900/30">
-                    <span className="text-[10px] font-black text-purple-400/50 uppercase tracking-widest mb-1 block">Preview</span>
-                    <BackgroundMusicPlayer 
-                      musicUrl={tempMusicUrl} 
-                      visualizerType={tempMusicVisualizer} 
-                      soundsEnabled={true} 
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="p-4 bg-[#090714] border-t border-purple-900/30 flex justify-end gap-2">
-                <button onClick={() => setIsEditingMusic(false)} className="px-4 py-2 text-xs font-bold text-white hover:bg-white/5 rounded-lg transition-colors">
-                  Cancel
-                </button>
-                <button 
-                  onClick={() => {
-                    onUpdate({ profile_music_url: tempMusicUrl, profile_music_visualizer: tempMusicVisualizer });
-                    setIsEditingMusic(false);
-                  }}
-                  className="px-6 py-2 bg-purple-500 hover:bg-purple-400 text-white text-xs font-black rounded-lg transition-colors shadow-lg"
-                >
-                  Save Music
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

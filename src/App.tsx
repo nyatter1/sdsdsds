@@ -188,9 +188,7 @@ export default function App() {
         profile_layout: data.profile_layout,
         profile_locked: data.profile_locked,
         profile_lock_count: data.profile_lock_count,
-        gallery: data.gallery || [],
-        profile_music_url: data.profile_music_url,
-        profile_music_visualizer: data.profile_music_visualizer || 'bars'
+        gallery: data.gallery || []
       });
     }
     setLoading(false);
@@ -237,8 +235,6 @@ export default function App() {
     if ('profile_locked' in updatedUser) dbUpdate.profile_locked = updatedUser.profile_locked;
     if ('profile_lock_count' in updatedUser) dbUpdate.profile_lock_count = updatedUser.profile_lock_count;
     if ('gallery' in updatedUser) dbUpdate.gallery = updatedUser.gallery;
-    if ('profile_music_url' in updatedUser) dbUpdate.profile_music_url = updatedUser.profile_music_url;
-    if ('profile_music_visualizer' in updatedUser) dbUpdate.profile_music_visualizer = updatedUser.profile_music_visualizer;
 
     const { error } = await supabase
       .from('profiles')

@@ -443,9 +443,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
           custom_profile_enabled: p.custom_profile_enabled,
           profile_layout: p.profile_layout,
           profile_locked: p.profile_locked,
-          profile_lock_count: p.profile_lock_count,
-          profile_music_url: p.profile_music_url,
-          profile_music_visualizer: p.profile_music_visualizer || "bars"
+          profile_lock_count: p.profile_lock_count
         };
       }));
     }
@@ -644,8 +642,6 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
       profile_layout: p.profile_layout,
       profile_locked: p.profile_locked,
       profile_lock_count: p.profile_lock_count,
-      profile_music_url: p.profile_music_url,
-      profile_music_visualizer: p.profile_music_visualizer || "bars",
       username_color: p.username_color || "#ffffff",
       username_font: p.username_font || "Inter",
       username_effect: p.username_effect || "none",
@@ -754,9 +750,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                 message_color: payload.new.message_color !== undefined ? payload.new.message_color : u.message_color,
                 message_font: payload.new.message_font !== undefined ? payload.new.message_font : u.message_font,
                 message_effect: payload.new.message_effect !== undefined ? payload.new.message_effect : u.message_effect,
-                message_format: payload.new.message_format !== undefined ? payload.new.message_format : u.message_format,
-                profile_music_url: payload.new.profile_music_url !== undefined ? payload.new.profile_music_url : u.profile_music_url,
-                profile_music_visualizer: payload.new.profile_music_visualizer !== undefined ? payload.new.profile_music_visualizer : u.profile_music_visualizer
+                message_format: payload.new.message_format !== undefined ? payload.new.message_format : u.message_format
               } : u
             );
             
@@ -794,9 +788,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
               message_color: payload.new.message_color !== undefined ? payload.new.message_color : user.message_color,
               message_font: payload.new.message_font !== undefined ? payload.new.message_font : user.message_font,
               message_effect: payload.new.message_effect !== undefined ? payload.new.message_effect : user.message_effect,
-              message_format: payload.new.message_format !== undefined ? payload.new.message_format : user.message_format,
-              profile_music_url: payload.new.profile_music_url !== undefined ? payload.new.profile_music_url : user.profile_music_url,
-              profile_music_visualizer: payload.new.profile_music_visualizer !== undefined ? payload.new.profile_music_visualizer : user.profile_music_visualizer
+              message_format: payload.new.message_format !== undefined ? payload.new.message_format : user.message_format
             });
           }
 
@@ -829,9 +821,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                 message_color: payload.new.message_color !== undefined ? payload.new.message_color : prev.message_color,
                 message_font: payload.new.message_font !== undefined ? payload.new.message_font : prev.message_font,
                 message_effect: payload.new.message_effect !== undefined ? payload.new.message_effect : prev.message_effect,
-                message_format: payload.new.message_format !== undefined ? payload.new.message_format : prev.message_format,
-                profile_music_url: payload.new.profile_music_url !== undefined ? payload.new.profile_music_url : prev.profile_music_url,
-                profile_music_visualizer: payload.new.profile_music_visualizer !== undefined ? payload.new.profile_music_visualizer : prev.profile_music_visualizer
+                message_format: payload.new.message_format !== undefined ? payload.new.message_format : prev.message_format
               };
             }
             return prev;
@@ -3357,8 +3347,6 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
             if ('profile_lock_count' in updated) mapped.profile_lock_count = updated.profile_lock_count;
             if ('coins' in updated) mapped.coins = updated.coins;
             if ('rubies' in updated) mapped.rubies = updated.rubies;
-            if ('profile_music_url' in updated) mapped.profile_music_url = updated.profile_music_url;
-            if ('profile_music_visualizer' in updated) mapped.profile_music_visualizer = updated.profile_music_visualizer;
 
             const oldUsername = profileTarget.username;
             const { error } = await supabase.from('profiles').update(mapped).eq('id', profileTarget.id);
