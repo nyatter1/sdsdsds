@@ -257,5 +257,21 @@ service cloud.firestore {
         isDeveloper()
       );
     }
+
+    match /friend_requests/{requestId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /friends/{friendId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /relationships/{relationshipId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /relationship_requests/{requestId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }

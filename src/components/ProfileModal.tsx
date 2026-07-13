@@ -4,12 +4,14 @@ import {
   MessageSquare, Star, Trash2, Shield, Languages, MapPin, Calendar, Clock,
   Users, Globe, Share2, Edit3, TrendingUp, Lock, TrendingUp as ShareIcon,
   Sparkles, Frame, CreditCard, Palette, Paintbrush, Zap,
-  LayoutGrid, Ban, ChevronLeft, ChevronRight, Check, Layout, Move, Plus, PlusCircle
+  LayoutGrid, Ban, ChevronLeft, ChevronRight, Check, Layout, Move, Plus, PlusCircle,
+  UserPlus, UserX, UserCheck
 } from "lucide-react";
 import { UserProfile, Rating, UserRank, RANKS_INFO, getLevelFromXp, ProfileLayout, ElementLayout, Story } from "../types";
 import GalleryViewModal from "./GalleryViewModal";
 import { Image as ImageIcon } from "lucide-react";
-import { supabase, getSyncedDate } from "../lib/supabase";
+import { supabase, getSyncedDate, firestore } from "../lib/supabase";
+import { collection, doc, onSnapshot, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where } from "firebase/firestore";
 import { uploadImageToStorage } from "../lib/storage";
 
 const EFFECTS_STYLE = `
@@ -784,6 +786,7 @@ interface ProfileModalProps {
   onUpdate: (updatedUser: Partial<UserProfile>) => void;
   ranksInfo?: Record<string, { name: string; icon: string; priority: number; isStaff?: boolean }>;
   initialShowStoryViewer?: boolean;
+  initialShowStoryCreator?: boolean;
 }
 
 const DEFAULT_LAYOUT: ProfileLayout = {
@@ -925,18 +928,38 @@ export default function ProfileModal({
   ranksInfo,
   soundsEnabled = true,
   initialShowStoryViewer = false,
+  initialShowStoryCreator = false,
 }: ProfileModalProps) {
   const finalRanksInfo = ranksInfo || RANKS_INFO;
-  const isOwnProfile = targetUser.username === currentUser.username;
-  const isBotUser = targetUser.id === "musicvibe-bot-system-id" || targetUser.isSystem || targetUser.rank === "BOT" || targetUser.username === "System";
+
+  // Active/Dynamic user navigation inside the modal
+  const [activeUser, setActiveUser] = useState<UserProfile>(targetUser);
+
+  useEffect(() => {
+    setActiveUser(targetUser);
+  }, [targetUser]);
+
+  const isOwnProfile = activeUser.username === currentUser.username;
+  const isBotUser = activeUser.id === "musicvibe-bot-system-id" || activeUser.isSystem || activeUser.rank === "BOT" || activeUser.username === "System";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  // Friendship states
+  const [friendshipStatus, setFriendshipStatus] = useState<"none" | "pending_sent" | "pending_received" | "friends">("none");
+  const [friendRequestDocId, setFriendRequestDocId] = useState<string | null>(null);
+  const [friendshipDocId, setFriendshipDocId] = useState<string | null>(null);
+
+  // Relationship states
+  const [targetRelationship, setTargetRelationship] = useState<any | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<UserProfile | null>(null);
+  const [pendingRelRequest, setPendingRelRequest] = useState<any | null>(null);
+  const [showRelSelect, setShowRelSelect] = useState(false);
 
   // Instagram Story Feature States
   const [activeStory, setActiveStory] = useState<Story | null>(null);
   const [isStoryLoading, setIsStoryLoading] = useState(false);
   const [showStoryViewer, setShowStoryViewer] = useState(false);
-  const [showStoryCreator, setShowStoryCreator] = useState(false);
+  const [showStoryCreator, setShowStoryCreator] = useState(initialShowStoryCreator || false);
 
   const [isEditingAbout, setIsEditingAbout] = useState(false);
   const [isEditingMood, setIsEditingMood] = useState(false);
@@ -947,6 +970,191 @@ export default function ProfileModal({
   const [isShowingGallery, setIsShowingGallery] = useState(false);
   const [showLevelStats, setShowLevelStats] = useState(false);
   const [editTab, setEditTab] = useState<"account" | "more">("account");
+
+  // Real-time listener for friendships and relationships
+  useEffect(() => {
+    if (!currentUser?.id || !activeUser?.id) return;
+
+    // 1. Listen to friend requests between currentUser and activeUser
+    const unsubRequests = onSnapshot(collection(firestore, "friend_requests"), (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      const request = docs.find(r => 
+        (r.sender_id === currentUser.id && r.receiver_id === activeUser.id && r.status === "pending") ||
+        (r.sender_id === activeUser.id && r.receiver_id === currentUser.id && r.status === "pending")
+      );
+
+      if (request) {
+        if (request.sender_id === currentUser.id) {
+          setFriendshipStatus("pending_sent");
+        } else {
+          setFriendshipStatus("pending_received");
+        }
+        setFriendRequestDocId(request.id);
+      } else {
+        setFriendshipStatus(prev => (prev === "friends" ? "friends" : "none"));
+      }
+    });
+
+    // 2. Listen to friendships between currentUser and activeUser
+    const unsubFriends = onSnapshot(collection(firestore, "friends"), (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      const friendship = docs.find(f => 
+        (f.user_id_1 === currentUser.id && f.user_id_2 === activeUser.id) ||
+        (f.user_id_1 === activeUser.id && f.user_id_2 === currentUser.id)
+      );
+
+      if (friendship) {
+        setFriendshipStatus("friends");
+        setFriendshipDocId(friendship.id);
+      } else {
+        setFriendshipStatus(prev => (prev === "friends" ? "none" : prev));
+        setFriendshipDocId(null);
+      }
+    });
+
+    // 3. Listen to the activeUser's relationship (with anyone)
+    const unsubTargetRelationship = onSnapshot(collection(firestore, "relationships"), (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      const rel = docs.find(r => r.user_id_1 === activeUser.id || r.user_id_2 === activeUser.id);
+      if (rel) {
+        setTargetRelationship(rel);
+        const partnerId = rel.user_id_1 === activeUser.id ? rel.user_id_2 : rel.user_id_1;
+        getDoc(doc(firestore, "profiles", partnerId)).then(docSnap => {
+          if (docSnap.exists()) {
+            setPartnerProfile({ id: docSnap.id, ...docSnap.data() as any });
+          }
+        });
+      } else {
+        setTargetRelationship(null);
+        setPartnerProfile(null);
+      }
+    });
+
+    return () => {
+      unsubRequests();
+      unsubFriends();
+      unsubTargetRelationship();
+    };
+  }, [currentUser?.id, activeUser?.id]);
+
+  useEffect(() => {
+    if (initialShowStoryCreator) {
+      setShowStoryCreator(true);
+    }
+  }, [initialShowStoryCreator]);
+
+  // Daily limit validation for relationship requests
+  const checkDailyRelationshipLimit = async (): Promise<boolean> => {
+    try {
+      const q = collection(firestore, "relationship_requests");
+      const snap = await getDocs(q);
+      const now = Date.now();
+      const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+      const recentRequest = snap.docs.find(d => {
+        const data = d.data();
+        if (data.sender_id !== currentUser.id) return false;
+        const createdAtTime = data.created_at ? new Date(data.created_at).getTime() : 0;
+        return createdAtTime > twentyFourHoursAgo;
+      });
+
+      return !recentRequest;
+    } catch (e) {
+      console.error(e);
+      return true;
+    }
+  };
+
+  // Friendship Actions
+  const sendFriendRequest = async () => {
+    const requestId = `req_${currentUser.id}_${activeUser.id}`;
+    await setDoc(doc(firestore, "friend_requests", requestId), {
+      id: requestId,
+      sender_id: currentUser.id,
+      receiver_id: activeUser.id,
+      status: "pending",
+      created_at: new Date().toISOString()
+    });
+  };
+
+  const handleRemoveFriendOrCancel = async () => {
+    if (friendRequestDocId) {
+      await deleteDoc(doc(firestore, "friend_requests", friendRequestDocId));
+    }
+    if (friendshipDocId) {
+      await deleteDoc(doc(firestore, "friends", friendshipDocId));
+      // Delete any active relationship between them
+      const q = collection(firestore, "relationships");
+      const snap = await getDocs(q);
+      const relsToDelete = snap.docs.filter(d => {
+        const data = d.data();
+        return (data.user_id_1 === currentUser.id && data.user_id_2 === activeUser.id) ||
+               (data.user_id_1 === activeUser.id && data.user_id_2 === currentUser.id);
+      });
+      for (const r of relsToDelete) {
+        await deleteDoc(doc(firestore, "relationships", r.id));
+      }
+    }
+  };
+
+  const acceptFriendRequest = async () => {
+    if (!friendRequestDocId) return;
+    const friendshipId = `friend_${currentUser.id}_${activeUser.id}`;
+    await setDoc(doc(firestore, "friends", friendshipId), {
+      id: friendshipId,
+      user_id_1: currentUser.id,
+      user_id_2: activeUser.id,
+      created_at: new Date().toISOString()
+    });
+    await deleteDoc(doc(firestore, "friend_requests", friendRequestDocId));
+  };
+
+  const declineFriendRequest = async () => {
+    if (friendRequestDocId) {
+      await deleteDoc(doc(firestore, "friend_requests", friendRequestDocId));
+    }
+  };
+
+  const handleSendRelationshipRequest = async (statusType: string) => {
+    try {
+      const isAllowed = await checkDailyRelationshipLimit();
+      if (!isAllowed) {
+        alert("You can only send 1 relationship request every 24 hours!");
+        return;
+      }
+
+      const requestId = `rel_req_${currentUser.id}_${activeUser.id}`;
+      await setDoc(doc(firestore, "relationship_requests", requestId), {
+        id: requestId,
+        sender_id: currentUser.id,
+        receiver_id: activeUser.id,
+        status: "pending",
+        relationship_type: statusType,
+        created_at: new Date().toISOString()
+      });
+
+      alert(`Relationship request (${statusType}) sent to ${activeUser.username}!`);
+      setShowRelSelect(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const getDurationText = (createdAt: string) => {
+    try {
+      const diff = Date.now() - new Date(createdAt).getTime();
+      const secs = Math.floor(diff / 1000);
+      const mins = Math.floor(secs / 60);
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+      if (days > 0) return `for ${days} day${days > 1 ? "s" : ""}`;
+      if (hours > 0) return `for ${hours} hour${hours > 1 ? "s" : ""}`;
+      if (mins > 0) return `for ${mins} minute${mins > 1 ? "s" : ""}`;
+      return "just started!";
+    } catch (e) {
+      return "";
+    }
+  };
 
   const [isEditingCustomLayout, setIsEditingCustomLayout] = useState(false);
   const [customLayout, setCustomLayout] = useState<ProfileLayout>(targetUser.profile_layout || DEFAULT_LAYOUT);
@@ -1077,7 +1285,7 @@ export default function ProfileModal({
       const { data } = await supabase
         .from('stories')
         .select('*')
-        .eq('id', targetUser.id)
+        .eq('id', activeUser.id)
         .single();
       
       if (data) {
@@ -1101,7 +1309,7 @@ export default function ProfileModal({
 
   useEffect(() => {
     fetchTargetUserStory();
-  }, [targetUser.id]);
+  }, [activeUser.id]);
 
   useEffect(() => {
     if (initialShowStoryViewer && activeStory) {
@@ -1229,6 +1437,37 @@ export default function ProfileModal({
         });
     }
   }, [targetUser.id, currentUser.id]);
+
+  const getRelationshipDuration = (createdAt: string | number) => {
+    if (!createdAt) return "";
+    const start = new Date(createdAt).getTime();
+    const now = Date.now();
+    const diffMs = now - start;
+    if (diffMs < 0) return "Just started";
+
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+      const hours = diffHours % 24;
+      return `${diffDays} Day${diffDays > 1 ? "s" : ""}, ${hours} Hour${hours !== 1 ? "s" : ""}`;
+    } else if (diffHours > 0) {
+      const mins = diffMins % 60;
+      return `${diffHours} Hour${diffHours > 1 ? "s" : ""}, ${mins} Minute${mins !== 1 ? "s" : ""}`;
+    } else if (diffMins > 0) {
+      return `${diffMins} Minute${diffMins > 1 ? "s" : ""} ago`;
+    } else {
+      return "Just now";
+    }
+  };
+
+  const formatRelationshipDate = (createdAt: string | number) => {
+    if (!createdAt) return "";
+    const d = new Date(createdAt);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  };
 
   const handleLike = async () => {
     if (isOwnProfile) return;
@@ -1446,8 +1685,8 @@ export default function ProfileModal({
           >
           {/* Banner */}
           <div className="h-20 w-full relative bg-purple-900/30">
-            {targetUser.banner && (
-              <img src={targetUser.banner} className="w-full h-full object-cover" alt="Banner" />
+            {activeUser.banner && (
+              <img src={activeUser.banner} className="w-full h-full object-cover" alt="Banner" />
             )}
             {/* Avatar */}
             <div 
@@ -1459,7 +1698,7 @@ export default function ProfileModal({
               }`}
             >
               <div className={`w-full h-full overflow-hidden ${activeStory ? "rounded-full border-2 border-[#161226]" : "rounded-none"}`}>
-                <img src={targetUser.pfp} className="w-full h-full object-cover" alt={targetUser.username} />
+                <img src={activeUser.pfp} className="w-full h-full object-cover" alt={activeUser.username} />
               </div>
             </div>
           </div>
@@ -1468,28 +1707,28 @@ export default function ProfileModal({
             className="pt-6 pb-2 px-4 text-center flex flex-col items-center bg-[#161226]"
           >
             <div className="flex items-center gap-1.5 mb-1 text-purple-300">
-              <img src={finalRanksInfo[targetUser.rank]?.icon || finalRanksInfo['VIP'].icon} alt={targetUser.rank} className="h-3.5 object-contain" />
-              <span className="text-[10px] font-black uppercase tracking-wider">{finalRanksInfo[targetUser.rank]?.name || targetUser.rank}</span>
+              <img src={finalRanksInfo[activeUser.rank]?.icon || finalRanksInfo['VIP'].icon} alt={activeUser.rank} className="h-3.5 object-contain" />
+              <span className="text-[10px] font-black uppercase tracking-wider">{finalRanksInfo[activeUser.rank]?.name || activeUser.rank}</span>
             </div>
             <h3 className="text-white font-bold text-lg">
-              {targetUser.username}
+              {activeUser.username}
             </h3>
-            {targetUser.mood && (
-              <p className="text-purple-400 text-xs italic mt-1 truncate px-2 max-w-full">{targetUser.mood}</p>
+            {activeUser.mood && (
+              <p className="text-purple-400 text-xs italic mt-1 truncate px-2 max-w-full">{activeUser.mood}</p>
             )}
             
             <div className="flex flex-col gap-1 mt-2 w-full overflow-hidden">
-              {targetUser.is_banned && (
+              {activeUser.is_banned && (
                 <div className="py-1 bg-red-600 border border-red-500 overflow-hidden w-full flex items-center">
                   <span className="text-[10px] font-black uppercase text-white animate-marquee shrink-0 px-2">🚨 THIS USER IS BANNED 🚨</span>
                 </div>
               )}
-              {targetUser.is_muted && (
+              {activeUser.is_muted && (
                 <div className="py-1 bg-slate-600 border border-slate-500 overflow-hidden w-full flex items-center">
                   <span className="text-[10px] font-black uppercase text-white animate-marquee shrink-0 px-2">🔇 THIS USER IS MUTED 🔇</span>
                 </div>
               )}
-              {targetUser.is_kicked && (
+              {activeUser.is_kicked && (
                 <div className="py-1 bg-orange-600 border border-orange-500 overflow-hidden w-full flex items-center">
                   <span className="text-[10px] font-black uppercase text-white animate-marquee shrink-0 px-2">⚠️ THIS USER IS KICKED ⚠️</span>
                 </div>
@@ -1510,7 +1749,6 @@ export default function ProfileModal({
               <>
                 <button 
                   onClick={() => {
-                    onView();
                     setShowStoryCreator(true);
                   }}
                   className="w-full text-left px-4 py-3 text-sm font-bold text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none"
@@ -1528,7 +1766,7 @@ export default function ProfileModal({
               </>
             )}
 
-            {(!targetUser.profile_locked || isOwnProfile) && !isBotUser && (
+            {(!activeUser.profile_locked || isOwnProfile) && !isBotUser && (
               <button 
                 onClick={() => { setIsShowingRatings(true); onView(); }}
                 className="w-full text-left px-4 py-3 text-sm text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none"
@@ -1541,7 +1779,7 @@ export default function ProfileModal({
             {!isBotUser && (
               <button 
                 onClick={() => {
-                  onMention(targetUser.username);
+                  onMention(activeUser.username);
                   onClose();
                 }}
                 className="w-full text-left px-4 py-3 text-sm text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none"
@@ -1549,6 +1787,83 @@ export default function ProfileModal({
                 <MessageSquare className="w-4 h-4 text-purple-400" />
                 Mention User
               </button>
+            )}
+
+            {!isOwnProfile && !isBotUser && (
+              <>
+                {friendshipStatus === "none" && (
+                  <button 
+                    onClick={sendFriendRequest}
+                    className="w-full text-left px-4 py-3 text-sm text-purple-200 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none border-t border-purple-900/10"
+                  >
+                    <UserPlus className="w-4 h-4 text-purple-400" />
+                    Add Friend
+                  </button>
+                )}
+                {friendshipStatus === "pending_sent" && (
+                  <button 
+                    onClick={handleRemoveFriendOrCancel}
+                    className="w-full text-left px-4 py-3 text-sm text-amber-300 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none border-t border-purple-900/10 animate-pulse"
+                  >
+                    <UserX className="w-4 h-4 text-amber-500" />
+                    Cancel Friend Request
+                  </button>
+                )}
+                {friendshipStatus === "pending_received" && (
+                  <div className="border-t border-purple-900/10 bg-purple-950/10">
+                    <button 
+                      onClick={acceptFriendRequest}
+                      className="w-full text-left px-4 py-3 text-sm text-emerald-400 hover:bg-purple-950/25 flex items-center gap-3 transition-colors rounded-none"
+                    >
+                      <UserCheck className="w-4 h-4 text-emerald-500" />
+                      Accept Friend Request
+                    </button>
+                    <button 
+                      onClick={declineFriendRequest}
+                      className="w-full text-left px-4 py-3 text-sm text-rose-400 hover:bg-purple-950/25 flex items-center gap-3 transition-colors rounded-none"
+                    >
+                      <UserX className="w-4 h-4 text-rose-500" />
+                      Decline Friend Request
+                    </button>
+                  </div>
+                )}
+                {friendshipStatus === "friends" && (
+                  <>
+                    <button 
+                      onClick={handleRemoveFriendOrCancel}
+                      className="w-full text-left px-4 py-3 text-sm text-rose-400 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none border-t border-purple-900/10"
+                    >
+                      <UserX className="w-4 h-4 text-rose-500" />
+                      Remove Friend
+                    </button>
+                    <button 
+                      onClick={() => setShowRelSelect(!showRelSelect)}
+                      className="w-full text-left px-4 py-3 text-sm text-pink-400 hover:bg-purple-950/50 flex items-center gap-3 transition-colors rounded-none border-t border-purple-900/10"
+                    >
+                      <Heart className="w-4 h-4 text-pink-500" />
+                      Status
+                    </button>
+
+                    {showRelSelect && (
+                      <div className="bg-[#120e24]/60 px-4 py-3 space-y-2 border-t border-purple-900/10">
+                        <p className="text-[9px] uppercase font-bold text-pink-400/80 tracking-wider">Select Status:</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {["Best Friend", "Friend", "Couple", "Married"].map((statusType) => (
+                            <button
+                              key={statusType}
+                              type="button"
+                              onClick={() => handleSendRelationshipRequest(statusType)}
+                              className="py-1 px-2 text-[9px] font-bold uppercase rounded bg-purple-900/40 border border-purple-800/30 text-purple-200 hover:bg-pink-600/30 hover:border-pink-500/40 hover:text-white transition-all cursor-pointer"
+                            >
+                              {statusType}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
 
             {(() => {
@@ -1784,6 +2099,154 @@ export default function ProfileModal({
           </div>
         )}
       </div>
+
+      {/* Story Creator Overlay in Quick View */}
+      {showStoryCreator && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[160] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#120e24] border border-purple-500/30 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-in zoom-in-95 duration-150 text-left flex flex-col max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <button 
+              onClick={() => {
+                setShowStoryCreator(false);
+                setStoryText("");
+                setStoryImage(null);
+                setStoryImagePreview("");
+              }}
+              className="absolute top-4 right-4 text-purple-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-5 border-b border-purple-950/40 pb-3">
+              <PlusCircle className="w-6 h-6 text-orange-500 animate-pulse" />
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">Create a Story</h3>
+                <p className="text-[9px] text-purple-400 uppercase tracking-widest font-bold">Only 1 active story at a time</p>
+              </div>
+            </div>
+
+            {/* Text Input */}
+            <div className="mb-4">
+              <label className="text-[10px] text-purple-300 uppercase font-black tracking-widest block mb-1.5">Story Text</label>
+              <textarea
+                value={storyText}
+                onChange={(e) => setStoryText(e.target.value)}
+                placeholder="What's on your mind? (Optional if uploading an image)"
+                className="w-full bg-purple-950/20 border border-purple-900/30 rounded-xl px-4 py-3 text-xs text-white placeholder-purple-500 focus:outline-none focus:border-purple-500 transition-colors h-24 resize-none"
+              />
+            </div>
+
+            {/* Image Input */}
+            <div className="mb-5">
+              <label className="text-[10px] text-purple-300 uppercase font-black tracking-widest block mb-1.5">Story Image (Optional)</label>
+              {storyImagePreview ? (
+                <div className="relative rounded-xl overflow-hidden aspect-[4/5] w-full border border-purple-900/40 max-h-60 mb-2">
+                  <img src={storyImagePreview} className="w-full h-full object-cover" alt="Story preview" />
+                  <button
+                    onClick={() => {
+                      setStoryImage(null);
+                      setStoryImagePreview("");
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => storyImageInputRef.current?.click()}
+                  className="w-full border border-dashed border-purple-900/40 hover:border-purple-500/50 rounded-xl py-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-purple-950/10 group"
+                >
+                  <ImageIcon className="w-8 h-8 text-purple-400 group-hover:text-purple-300 transition-colors" />
+                  <span className="text-xs text-purple-300 font-bold">Upload an Image</span>
+                  <span className="text-[10px] text-purple-400 uppercase tracking-wider">Supports PNG, JPEG, GIF</span>
+                  <input 
+                    type="file"
+                    ref={storyImageInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleStoryImageChange}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Background Swatches */}
+            {!storyImagePreview && (
+              <div className="mb-6">
+                <label className="text-[10px] text-purple-300 uppercase font-black tracking-widest block mb-2">Background Theme</label>
+                <div className="flex gap-2.5 items-center">
+                  {STORY_GRADIENTS.map((gradient) => (
+                    <button
+                      key={gradient.id}
+                      onClick={() => setSelectedBgGradient(gradient.class)}
+                      className={`w-8 h-8 rounded-full transition-all flex items-center justify-center relative shadow-md ${gradient.class} ${
+                        selectedBgGradient === gradient.class 
+                          ? "ring-2 ring-purple-400 ring-offset-2 ring-offset-[#120e24] scale-110" 
+                          : "hover:scale-105"
+                      }`}
+                      title={gradient.name}
+                    >
+                      {selectedBgGradient === gradient.class && (
+                        <Check className="w-3.5 h-3.5 text-white drop-shadow-md" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2.5 border-t border-purple-950/40 pt-4 mt-auto">
+              <button
+                disabled={isPublishingStory}
+                onClick={() => {
+                  setShowStoryCreator(false);
+                  setStoryText("");
+                  setStoryImage(null);
+                  setStoryImagePreview("");
+                }}
+                className="flex-1 py-2 px-4 bg-purple-950/30 hover:bg-purple-950/50 text-purple-300 text-xs font-bold rounded-xl transition-colors text-center disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isPublishingStory || (!storyText.trim() && !storyImage)}
+                onClick={handlePublishStory}
+                className="flex-1 py-2 px-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white text-xs font-black rounded-xl transition-all shadow-lg text-center uppercase tracking-wider disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isPublishingStory ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Sharing...</span>
+                  </>
+                ) : (
+                  <span>Share Story</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Story Viewer Overlay in Quick View */}
+      {showStoryViewer && activeStory && (
+        <StoryViewerOverlay
+          story={activeStory}
+          isOwnProfile={isOwnProfile}
+          onClose={() => setShowStoryViewer(false)}
+          onDelete={async () => {
+            if (window.confirm("Are you sure you want to delete your story?")) {
+              try {
+                await supabase.from('stories').delete().eq('id', activeUser.id);
+                setActiveStory(null);
+                setShowStoryViewer(false);
+              } catch (err) {
+                console.error("Failed to delete story:", err);
+              }
+            }
+          }}
+        />
+      )}
       </>
     );
   }
@@ -2056,9 +2519,9 @@ export default function ProfileModal({
   }
 
   // Get custom border styles
-  const currentBorderId = targetUser.border || "none";
-  const currentBorderThickness = targetUser.borderThickness || "2px";
-  const currentBorderStyle = targetUser.borderStyle || "solid";
+  const currentBorderId = activeUser.border || "none";
+  const currentBorderThickness = activeUser.borderThickness || "2px";
+  const currentBorderStyle = activeUser.borderStyle || "solid";
   const borderStyles = currentBorderId !== "none" ? getProfileBorderStyle(currentBorderId, currentBorderThickness) : {};
   if (currentBorderId !== "none" && currentBorderStyle !== "solid") {
     borderStyles.borderStyle = currentBorderStyle;
@@ -2066,10 +2529,10 @@ export default function ProfileModal({
   
   const outerBorderClass = `relative w-full max-w-lg bg-[#0d0a1c] rounded-none overflow-hidden flex flex-col max-h-[90vh] ${
     currentBorderId !== "none" ? `profile-border-${currentBorderId}` : 'border border-purple-900/40 shadow-[0_0_50px_rgba(0,0,0,0.5)]'
-  } ${targetUser.profile_effect === 'sepia' ? 'profile-effect-sepia' : ''} ${targetUser.email === 'dev@gmail.com' && mode === 'view' && !showStoryViewer && !showStoryCreator ? 'animate-gentle-shake' : ''}`;
+  } ${activeUser.profile_effect === 'sepia' ? 'profile-effect-sepia' : ''} ${activeUser.email === 'dev@gmail.com' && mode === 'view' && !showStoryViewer && !showStoryCreator ? 'animate-gentle-shake' : ''}`;
   
-  const currentEffectClass = targetUser.profile_effect && targetUser.profile_effect !== 'none' 
-    ? (targetUser.profile_effect === 'sepia' ? '' : `profile-effect-${targetUser.profile_effect}`) 
+  const currentEffectClass = activeUser.profile_effect && activeUser.profile_effect !== 'none' 
+    ? (activeUser.profile_effect === 'sepia' ? '' : `profile-effect-${activeUser.profile_effect}`) 
     : '';
 
   return (
@@ -2792,8 +3255,8 @@ export default function ProfileModal({
 
         {/* Banner */}
         <div className="h-48 w-full relative z-10 bg-purple-900/20 shrink-0">
-          {targetUser.banner && (
-            <img src={targetUser.banner} className="w-full h-full object-cover" alt="Banner" />
+          {activeUser.banner && (
+            <img src={activeUser.banner} className="w-full h-full object-cover" alt="Banner" />
           )}
           {isUploadingBanner && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 z-10">
@@ -2814,7 +3277,7 @@ export default function ProfileModal({
                 }`}
               >
                 <div className={`w-full h-full overflow-hidden ${activeStory ? "rounded-full border-4 border-[#161226]" : "rounded-none"}`}>
-                  <img src={targetUser.pfp} className="w-full h-full object-cover" alt={targetUser.username} />
+                  <img src={activeUser.pfp} className="w-full h-full object-cover" alt={activeUser.username} />
                   {isUploadingPfp && (
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 z-10">
                       <span className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></span>
@@ -2845,24 +3308,24 @@ export default function ProfileModal({
             </div>
             <div className="mb-2">
               <div className="flex items-center gap-1.5 mb-1.5 text-purple-200">
-                <img src={finalRanksInfo[targetUser.rank]?.icon || finalRanksInfo['VIP'].icon} alt={targetUser.rank} className="h-4 object-contain" />
+                <img src={finalRanksInfo[activeUser.rank]?.icon || finalRanksInfo['VIP'].icon} alt={activeUser.rank} className="h-4 object-contain" />
                 <span className="text-xs font-black tracking-wider uppercase">
-                  {finalRanksInfo[targetUser.rank]?.name || targetUser.rank}
+                  {finalRanksInfo[activeUser.rank]?.name || activeUser.rank}
                 </span>
               </div>
               <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                {targetUser.username}
+                {activeUser.username}
               </h2>
 
-              {targetUser.profile_locked ? (
+              {activeUser.profile_locked ? (
                 <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_10px_rgba(239,68,68,0.15)] animate-pulse">
                   <Lock className="w-3 h-3" />
                   Locked
                 </div>
               ) : (
                 <>
-                  {targetUser.mood && (
-                    <p className="text-purple-400 text-xs italic font-medium mt-0.5">{targetUser.mood}</p>
+                  {activeUser.mood && (
+                    <p className="text-purple-400 text-xs italic font-medium mt-0.5">{activeUser.mood}</p>
                   )}
                 </>
               )}
@@ -2872,7 +3335,7 @@ export default function ProfileModal({
 
         {/* Profile Content */}
         <div 
-          className={`pt-14 p-8 overflow-y-auto custom-scrollbar flex-1 relative z-10 ${targetUser.email === 'dev@gmail.com' && mode === 'view' && (!targetUser.profile_effect || targetUser.profile_effect === 'none') ? 'bg-blueprint-pattern' : ''}`}
+          className={`pt-14 p-8 overflow-y-auto custom-scrollbar flex-1 relative z-10 ${activeUser.email === 'dev@gmail.com' && mode === 'view' && (!activeUser.profile_effect || activeUser.profile_effect === 'none') ? 'bg-blueprint-pattern' : ''}`}
         >
 
           <div className="mb-6">
@@ -2880,11 +3343,11 @@ export default function ProfileModal({
                onClick={() => setIsShowingGallery(true)}
                className="w-full py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-blue-400 font-bold flex items-center justify-center gap-2 hover:bg-blue-500/20 transition-colors shadow-[0_0_15px_rgba(59,130,246,0.15)]"
             >
-              <ImageIcon className="w-5 h-5" /> View Gallery ({targetUser.gallery?.length || 0} Photos)
+              <ImageIcon className="w-5 h-5" /> View Gallery ({activeUser.gallery?.length || 0} Photos)
             </button>
           </div>
           {mode === "view" ? (
-            targetUser.profile_locked && !isOwnProfile ? (
+            activeUser.profile_locked && !isOwnProfile ? (
               <div className="flex flex-col items-center justify-center py-16 px-4 text-center animate-in fade-in duration-300">
                 <div className="w-20 h-20 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
                   <Lock className="w-10 h-10 animate-pulse" />
@@ -2896,8 +3359,58 @@ export default function ProfileModal({
               </div>
             ) : (
               <div className="space-y-8">
+                {/* Relationship Status Card */}
+                {targetRelationship && partnerProfile && (
+                  <div className={`p-5 rounded-none border text-left flex flex-col justify-center animate-in fade-in duration-300 ${
+                    targetRelationship.status === "Married" 
+                      ? "bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-amber-950/40 border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.05)] text-yellow-400" 
+                      : targetRelationship.status === "Couple"
+                      ? "bg-gradient-to-r from-pink-950/40 via-rose-950/20 to-pink-950/40 border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.05)] text-pink-400"
+                      : targetRelationship.status === "Best Friend"
+                      ? "bg-gradient-to-r from-violet-950/40 via-indigo-950/20 to-violet-950/40 border-violet-500/30 shadow-[0_0_15px_rgba(139,92,246,0.05)] text-violet-400"
+                      : "bg-gradient-to-r from-emerald-950/40 via-teal-950/20 to-emerald-950/40 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)] text-emerald-400"
+                  }`}>
+                    <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2.5">
+                      <h4 className="text-[10px] uppercase font-black tracking-widest flex items-center gap-1.5">
+                        {targetRelationship.status === "Married" ? "💍 Married" : targetRelationship.status === "Couple" ? "💖 Couple" : targetRelationship.status === "Best Friend" ? "🌟 Best Friend" : "✨ Friend"} Status
+                      </h4>
+                      <span className="text-[9px] font-mono opacity-60">RELATIONSHIP ACTIVE</span>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div 
+                        onClick={() => setActiveUser(partnerProfile)}
+                        className="w-14 h-14 rounded-full p-[2px] bg-white/10 hover:bg-white/35 transition-all cursor-pointer relative group shrink-0 overflow-hidden"
+                      >
+                        <img src={partnerProfile.pfp} className="w-full h-full rounded-full object-cover" alt={partnerProfile.username} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-purple-400 uppercase font-black tracking-wider mb-0.5">Partner</p>
+                        <h5 
+                          onClick={() => setActiveUser(partnerProfile)}
+                          className="text-white font-black text-sm hover:text-purple-300 transition-colors cursor-pointer truncate"
+                        >
+                          {partnerProfile.username}
+                        </h5>
+                        <div className="flex items-center gap-1 mt-1 text-[10px] text-purple-300/80">
+                          <Calendar className="w-3.5 h-3.5 shrink-0" />
+                          <span>Since {formatRelationshipDate(targetRelationship.created_at)}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p className="text-[9px] text-purple-500 uppercase font-black tracking-widest">Duration</p>
+                        <p className="text-xs text-white font-mono font-bold mt-0.5">
+                          {getRelationshipDuration(targetRelationship.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Info Grid */}
-                <div className="bg-[#16122a]/50 rounded-none p-6 border border-purple-900/20">
+                <div className="bg-[#16122a]/50 rounded-none p-6 border border-purple-900/20 text-left">
                   <h3 className="text-xs font-black text-purple-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                     <Info className="w-4 h-4" />
                     User Information
@@ -2905,31 +3418,31 @@ export default function ProfileModal({
                   <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                     <div className="space-y-1">
                       <p className="text-[10px] text-purple-500 uppercase font-bold tracking-wider">Age</p>
-                      <p className="text-sm text-purple-100 font-medium">{targetUser.age}</p>
+                      <p className="text-sm text-purple-100 font-medium">{activeUser.age}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-purple-500 uppercase font-bold tracking-wider">Gender</p>
-                      <p className="text-sm text-purple-100 font-medium">{targetUser.gender}</p>
+                      <p className="text-sm text-purple-100 font-medium">{activeUser.gender}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-purple-500 uppercase font-bold tracking-wider">Last Online</p>
                       <div className="flex items-center gap-1.5 text-sm text-purple-100 font-medium">
                         <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>{targetUser.lastOnline || "Just now"}</span>
+                        <span>{activeUser.lastOnline || "Just now"}</span>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-purple-500 uppercase font-bold tracking-wider">Created</p>
                       <div className="flex items-center gap-1.5 text-sm text-purple-100 font-medium">
                         <Calendar className="w-3.5 h-3.5 text-purple-400" />
-                        <span>{targetUser.createdDate || "Today"}</span>
+                        <span>{activeUser.createdDate || "Today"}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* About Me */}
-                <div className="bg-[#16122a]/50 rounded-none p-6 border border-purple-900/20">
+                <div className="bg-[#16122a]/50 rounded-none p-6 border border-purple-900/20 text-left">
                   <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                     <h3 className="text-xs font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
                       <User className="w-4 h-4" />
@@ -2939,10 +3452,10 @@ export default function ProfileModal({
                     
                   </div>
                   
-                  {targetUser.aboutMe ? (
+                  {activeUser.aboutMe ? (
                     <div className="space-y-4">
-                      <BioContentRenderer text={targetUser.aboutMe} />
-                      <BioMediaRenderer text={targetUser.aboutMe} />
+                      <BioContentRenderer text={activeUser.aboutMe} />
+                      <BioMediaRenderer text={activeUser.aboutMe} />
                     </div>
                   ) : (
                     <p className="text-sm text-purple-200/40 italic font-medium">

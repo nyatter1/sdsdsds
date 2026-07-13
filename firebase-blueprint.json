@@ -91,6 +91,22 @@
     "/ratings/{ratingId}": {
       "schema": "object",
       "description": "User reviews and ratings"
+    },
+    "/friend_requests/{requestId}": {
+      "schema": "object",
+      "description": "Pending friend requests between users"
+    },
+    "/friends/{friendId}": {
+      "schema": "object",
+      "description": "Accepted friendships between users"
+    },
+    "/relationships/{relationshipId}": {
+      "schema": "object",
+      "description": "Active relationship statuses"
+    },
+    "/relationship_requests/{requestId}": {
+      "schema": "object",
+      "description": "Pending relationship requests"
     }
   }
 }

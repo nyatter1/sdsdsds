@@ -79,7 +79,8 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
   const bgFileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<"chat" | "staff" | "rules">("chat");
   const [isNewsOpen, setIsNewsOpen] = useState(false);
-  const [rightPanelTab, setRightPanelTab] = useState<"online" | "staff">("online");
+  const [rightPanelTab, setRightPanelTab] = useState<"online" | "staff" | "friends">("online");
+  const [friends, setFriends] = useState<any[]>([]);
   const [genderFilter, setGenderFilter] = useState<"ALL" | "MALE" | "FEMALE" | "OTHER">("ALL");
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -481,6 +482,13 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     return ranks;
   }, [customRanks]);
 
+  const friendsProfiles = useMemo(() => {
+    return friends.map(f => {
+      const friendId = f.user_id_1 === user.id ? f.user_id_2 : f.user_id_1;
+      return allProfiles.find(p => p.id === friendId);
+    }).filter(Boolean) as UserProfile[];
+  }, [friends, allProfiles, user.id]);
+
   const fetchAllProfiles = async () => {
     const { data } = await supabase.from('profiles').select('*');
     if (data) {
@@ -773,8 +781,27 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     return { style, className };
   };
 
+  const fetchFriends = async () => {
+    if (!user || !user.id) return;
+    const { data, error } = await supabase
+      .from('friends')
+      .select('*');
+    if (!error && data) {
+      const filtered = data.filter((f: any) => f.user_id_1 === user.id || f.user_id_2 === user.id);
+      setFriends(filtered);
+    }
+  };
+
   useEffect(() => {
     fetchOnlineUsers();
+    fetchFriends();
+
+    const friendsChannel = supabase
+      .channel('friends-realtime-chatroom')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friends' }, () => {
+        fetchFriends();
+      })
+      .subscribe();
     
     // Subscribe to all profile changes (INSERT, UPDATE, DELETE) in real-time
     const profileChannel = supabase
@@ -936,6 +963,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnloadPresence);
       supabase.removeChannel(profileChannel);
+      supabase.removeChannel(friendsChannel);
       presenceChannel.untrack();
       supabase.removeChannel(presenceChannel);
     };
@@ -2532,13 +2560,54 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                   if (msg.text?.startsWith('[USERNAME_CHANGE] ')) {
                     const changeText = msg.text.replace('[USERNAME_CHANGE] ', '').trim();
                     return (
-                      <div key={msg.id} className="flex gap-2.5 px-4 py-3 border-b border-white/5 bg-purple-950/10 items-center justify-center animate-in fade-in duration-200">
-                        <div className="flex items-center gap-3 bg-gradient-to-r from-[#120e24]/80 to-[#1e133d]/50 border border-purple-500/30 px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.15)] max-w-lg w-full">
-                          <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 shrink-0">
-                            <UserCog className="w-4 h-4" />
+                      <div key={msg.id} className="group flex gap-3 px-4 py-3 border-b border-white/5 relative bg-transparent">
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <div className="flex items-center gap-3 py-1 text-sm text-[#8c88a5] font-medium animate-in fade-in duration-200">
+                            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 shadow-md border border-white/10 bg-[#161226]/80 flex items-center justify-center">
+                              <img 
+                                src="https://musicvibe.io/default_images/avatar/default_system.png" 
+                                alt="System Bot" 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => {
+                                  (e.target as any).src = "https://api.dicebear.com/7.x/identicon/svg?seed=System";
+                                }}
+                              />
+                            </div>
+                            <span className="flex items-center gap-1.5 flex-wrap">
+                              {(() => {
+                                const match = changeText.match(/(.+) is now known as (.+)/);
+                                if (match) {
+                                  const oldName = match[1];
+                                  const newName = match[2];
+                                  return (
+                                    <>
+                                      <span 
+                                        onClick={() => {
+                                          const foundUser = computedUsers.find(u => u.username === oldName);
+                                          if (foundUser) handleProfileClick(foundUser);
+                                        }}
+                                        className="text-white font-bold hover:underline cursor-pointer transition-colors"
+                                      >
+                                        {oldName}
+                                      </span>
+                                      <span>is now known as</span>
+                                      <span 
+                                        onClick={() => {
+                                          const foundUser = computedUsers.find(u => u.username === newName);
+                                          if (foundUser) handleProfileClick(foundUser);
+                                        }}
+                                        className="text-white font-bold hover:underline cursor-pointer transition-colors"
+                                      >
+                                        {newName}
+                                      </span>
+                                    </>
+                                  );
+                                }
+                                return <span>{changeText}</span>;
+                              })()}
+                            </span>
+                            <span className="text-[10px] text-purple-500 font-medium ml-1 shrink-0">{msg.time}</span>
                           </div>
-                          <span className="text-xs text-white/90 font-bold flex-1">{changeText}</span>
-                          <span className="text-[10px] text-white/40 font-mono font-medium shrink-0 ml-1">{msg.time}</span>
                         </div>
                       </div>
                     );
@@ -3129,10 +3198,10 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
             <div className="md:hidden absolute inset-0 bg-black/60 backdrop-blur-xs z-10" onClick={() => setIsOnlinePanelOpen(false)} />
             <div className="absolute right-0 top-0 bottom-0 md:relative w-72 bg-[#0c0919] border-l border-purple-950/50 flex flex-col shrink-0 z-20 animate-in slide-in-from-right duration-200 shadow-2xl md:shadow-none">
               {/* Two switch buttons: Online and Staff */}
-            <div className="grid grid-cols-2 p-1 bg-[#090714] border-b border-purple-950/40 gap-1 shrink-0">
+            <div className="grid grid-cols-3 p-1 bg-[#090714] border-b border-purple-950/40 gap-1 shrink-0">
               <button
                 onClick={() => setRightPanelTab("online")}
-                className={`py-2 text-[11px] font-black tracking-widest uppercase rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 text-[11px] font-black tracking-widest uppercase rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   rightPanelTab === "online"
                     ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
                     : "text-purple-400 hover:text-white hover:bg-purple-950/30"
@@ -3143,7 +3212,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
               </button>
               <button
                 onClick={() => setRightPanelTab("staff")}
-                className={`py-2 text-[11px] font-black tracking-widest uppercase rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 text-[11px] font-black tracking-widest uppercase rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   rightPanelTab === "staff"
                     ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
                     : "text-purple-400 hover:text-white hover:bg-purple-950/30"
@@ -3151,6 +3220,17 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
               >
                 <Crown className="w-3.5 h-3.5" />
                 <span>Staff</span>
+              </button>
+              <button
+                onClick={() => setRightPanelTab("friends")}
+                className={`py-2 text-[11px] font-black tracking-widest uppercase rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  rightPanelTab === "friends"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
+                    : "text-purple-400 hover:text-white hover:bg-purple-950/30"
+                }`}
+              >
+                <Heart className="w-3.5 h-3.5" />
+                <span>Friends</span>
               </button>
             </div>
 
@@ -3345,7 +3425,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                       })}
                   </div>
                 </>
-              ) : (
+              ) : rightPanelTab === "staff" ? (
                 <div className="space-y-4">
                   {staffGrouped.map((group) => (
                     <div key={group.key} className="space-y-2 border-b border-purple-950/20 pb-3 last:border-0">
@@ -3448,6 +3528,108 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                     <div className="p-4 text-center">
                       <p className="text-xs italic text-purple-400">No staff members configured</p>
                     </div>
+                  )}
+                </div>
+              ) : (
+                // Friends Tab Content
+                <div className="space-y-3">
+                  <p className="text-[10px] text-purple-500 uppercase font-bold tracking-widest px-2">
+                    My Friends ({friendsProfiles.length})
+                  </p>
+                  {friendsProfiles.length === 0 ? (
+                    <div className="text-center py-8 text-purple-400/60 text-xs px-2">
+                      No friends added yet.
+                      <p className="text-[9px] text-purple-500 uppercase mt-2 tracking-wider leading-relaxed">
+                        To add a friend, visit their profile and select "Add Friend" under Actions.
+                      </p>
+                    </div>
+                  ) : (
+                    friendsProfiles.map((f) => {
+                      const isFriendOnline = onlineUserIds.has(f.id);
+                      const mappedFriend = onlineList.find(ou => ou.id === f.id) || {
+                        ...f,
+                        isCurrentUser: false,
+                        status: isFriendOnline ? 'online' : 'offline'
+                      } as OnlineUser;
+
+                      const cardGlow = getUserCardStyle(mappedFriend);
+                      const hasCustomBorder = mappedFriend.border && mappedFriend.border !== 'none';
+                      const isGlowActive = mappedFriend.cardGlowType && mappedFriend.cardGlowType !== 'none';
+                      const hasCustomStyle = isGlowActive || hasCustomBorder;
+
+                      let cardClasses = "p-2.5 rounded-none flex items-center justify-between transition-all cursor-pointer ";
+                      if (isFriendOnline) {
+                        cardClasses += "bg-[#120e24]/60 hover:bg-[#1a1435]/80 ";
+                      } else {
+                        cardClasses += "bg-[#120e24]/30 hover:bg-[#1a1435]/50 opacity-60 hover:opacity-100 ";
+                      }
+
+                      if (hasCustomStyle) {
+                        cardClasses += cardGlow.className;
+                      } else {
+                        cardClasses += isFriendOnline 
+                          ? "border border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+                          : "border border-purple-950/20";
+                      }
+
+                      return (
+                        <div
+                          key={f.id}
+                          onClick={() => handleProfileClick(f)}
+                          className={cardClasses}
+                          style={hasCustomStyle ? cardGlow.style : undefined}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="relative">
+                              {activeStories[f.id] ? (
+                                <div 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleProfileClick(f, "view", true);
+                                  }}
+                                  className="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 via-orange-500 to-pink-500 p-[2px] flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                                >
+                                  <div className="w-full h-full rounded-full overflow-hidden border border-[#0c0919]">
+                                    <img src={f.pfp} alt={f.username} className="w-full h-full rounded-full object-cover" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-9 h-9 rounded-none bg-purple-950/80 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
+                                  <img src={f.pfp} alt={f.username} className="w-full h-full rounded-none object-cover" />
+                                </div>
+                              )}
+                              <div className="absolute bottom-0 right-0">
+                                {renderStatusBadge(isFriendOnline ? 'online' : 'offline', "w-2.5 h-2.5 border-2 border-[#0c0919] rounded-full")}
+                              </div>
+                            </div>
+                            <div className="min-w-0">
+                              <span 
+                                className={`text-xs font-bold truncate max-w-[120px] flex items-center gap-1 ${mappedFriend.cardGlowType === 'terminal' ? 'text-[#00ff00]' : 'text-white'} ${getStyleClasses(mappedFriend.username_effect, mappedFriend.username_format)}`}
+                                style={mappedFriend.cardGlowType === 'terminal' ? { color: '#00ff00', fontFamily: 'monospace' } : getStyleInline(mappedFriend.username_color, mappedFriend.username_font, mappedFriend.username_effect)}
+                              >
+                                {f.username}
+                              </span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[9px] italic truncate max-w-[120px] block" style={{ color: mappedFriend.cardGlowType === 'terminal' ? '#00ff00' : '#a78bfa' }}>{f.mood || "No mood set"}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            {mappedFriend.cardGlowType === 'terminal' ? (
+                              <span className="text-[8px] border border-[#00ff00] text-[#00ff00] font-bold px-1.5 py-0.5 rounded uppercase font-mono">
+                                {mappedFriend.rank}
+                              </span>
+                            ) : (
+                              <img 
+                                src={allRanksInfo[mappedFriend.rank]?.icon || allRanksInfo['VIP'].icon} 
+                                alt={mappedFriend.rank} 
+                                className="h-3 w-auto object-contain" 
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               )}
