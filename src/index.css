@@ -58,3 +58,56 @@
   border-width: 1px !important;
   border-style: solid !important;
 }
+
+/* Global Font & Icon Customizations */
+:root {
+  --app-font-family: "Nunito", "Fredoka", ui-sans-serif, system-ui, sans-serif;
+}
+
+html, body, #root {
+  font-family: var(--app-font-family) !important;
+}
+
+/* Apply font-family override unless inside chat-messages-container */
+*:not(.chat-messages-container):not(.chat-messages-container *) {
+  font-family: var(--app-font-family) !important;
+}
+
+.chat-messages-container,
+.chat-messages-container * {
+  font-family: "Nunito", "Fredoka", ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Apply dynamic stroke/glow to Lucide icons */
+svg:not(.absolute):not(.ignore-custom-icons) {
+  stroke: var(--app-icon-stroke, currentColor) !important;
+  filter: var(--app-icon-filter, none) !important;
+  animation: var(--app-icon-animation, none) !important;
+  transition: stroke 0.25s ease, filter 0.25s ease, transform 0.25s ease;
+  transform-origin: center;
+}
+
+svg:not(.absolute):not(.ignore-custom-icons) path,
+svg:not(.absolute):not(.ignore-custom-icons) circle,
+svg:not(.absolute):not(.ignore-custom-icons) rect,
+svg:not(.absolute):not(.ignore-custom-icons) line,
+svg:not(.absolute):not(.ignore-custom-icons) polyline,
+svg:not(.absolute):not(.ignore-custom-icons) polygon {
+  stroke: var(--app-icon-stroke, currentColor) !important;
+}
+
+/* Also dynamically color elements using fill="currentColor" (e.g. solid hearts/stars) */
+svg:not(.absolute):not(.ignore-custom-icons)[fill="currentColor"],
+svg:not(.absolute):not(.ignore-custom-icons) *[fill="currentColor"] {
+  fill: var(--app-icon-stroke, currentColor) !important;
+}
+
+@keyframes icon-shimmer-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+

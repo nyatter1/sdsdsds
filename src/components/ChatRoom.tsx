@@ -36,6 +36,174 @@ const getAssetUrl = (path: string) => {
   return cleanBase + cleanPath;
 };
 
+// Font & Icon Colors Customization Lists (100 Icon Colors & 50+ Fonts)
+const ALL_FONTS = [
+  "Default",
+  "Inter",
+  "Roboto",
+  "Open Sans",
+  "Montserrat",
+  "Lato",
+  "Poppins",
+  "Oswald",
+  "Source Sans Pro",
+  "Raleway",
+  "Ubuntu",
+  "Nunito",
+  "Playfair Display",
+  "Merriweather",
+  "Lora",
+  "PT Serif",
+  "Roboto Mono",
+  "JetBrains Mono",
+  "Fira Code",
+  "Share Tech Mono",
+  "Space Grotesk",
+  "Outfit",
+  "Syne",
+  "Lexend",
+  "Pacifico",
+  "Caveat",
+  "Amatic SC",
+  "Shadows Into Light",
+  "Great Vibes",
+  "Cinzel",
+  "Cormorant Garamond",
+  "Bebas Neue",
+  "Righteous",
+  "Lobster",
+  "Fredoka One",
+  "Comfortaa",
+  "Permanent Marker",
+  "Press Start 2P",
+  "Creepster",
+  "Bungee",
+  "Russo One",
+  "Archivo Black",
+  "Sacramento",
+  "Courgette",
+  "Kaushan Script",
+  "Orbitron",
+  "Syncopate",
+  "Audiowide",
+  "Goldman",
+  "Bangers",
+  "Cinzel Decorative",
+  "Teko"
+];
+
+const SOLID_COLORS = [
+  { id: "solid-white", name: "Solid White", value: "#ffffff" },
+  { id: "solid-slate", name: "Solid Slate", value: "#94a3b8" },
+  { id: "solid-charcoal", name: "Solid Charcoal", value: "#475569" },
+  { id: "solid-red", name: "Solid Red", value: "#ef4444" },
+  { id: "solid-rose", name: "Solid Rose", value: "#f43f5e" },
+  { id: "solid-pink", name: "Solid Pink", value: "#ec4899" },
+  { id: "solid-fuchsia", name: "Solid Fuchsia", value: "#d946ef" },
+  { id: "solid-purple", name: "Solid Purple", value: "#a855f7" },
+  { id: "solid-violet", name: "Solid Violet", value: "#8b5cf6" },
+  { id: "solid-indigo", name: "Solid Indigo", value: "#6366f1" },
+  { id: "solid-blue", name: "Solid Blue", value: "#3b82f6" },
+  { id: "solid-sky", name: "Solid Sky Blue", value: "#0ea5e9" },
+  { id: "solid-cyan", name: "Solid Cyan", value: "#06b6d4" },
+  { id: "solid-teal", name: "Solid Teal", value: "#14b8a6" },
+  { id: "solid-mint", name: "Solid Mint", value: "#10b981" },
+  { id: "solid-emerald", name: "Solid Emerald", value: "#059669" },
+  { id: "solid-green", name: "Solid Green", value: "#22c55e" },
+  { id: "solid-lime", name: "Solid Lime", value: "#84cc16" },
+  { id: "solid-yellow", name: "Solid Yellow", value: "#eab308" },
+  { id: "solid-amber", name: "Solid Amber", value: "#f59e0b" },
+  { id: "solid-orange", name: "Solid Orange", value: "#f97316" },
+  { id: "solid-tangerine", name: "Solid Tangerine", value: "#ff4500" },
+  { id: "solid-gold", name: "Solid Gold", value: "#ffd700" },
+  { id: "solid-lavender", name: "Solid Lavender", value: "#e9d5ff" },
+  { id: "solid-coral", name: "Solid Coral", value: "#ff7f50" }
+];
+
+const GRADIENTS = [
+  { id: "grad-sunset", name: "Sunset Glow", from: "#ff4500", to: "#ff007f" },
+  { id: "grad-ocean", name: "Ocean Breeze", from: "#00ffff", to: "#0055ff" },
+  { id: "grad-laser", name: "Neon Laser", from: "#39ff14", to: "#bc13fe" },
+  { id: "grad-royal", name: "Royal Amethyst", from: "#a855f7", to: "#3b82f6" },
+  { id: "grad-rose", name: "Rose Petal", from: "#f43f5e", to: "#ec4899" },
+  { id: "grad-sun", name: "Golden Sun", from: "#ffd700", to: "#f97316" },
+  { id: "grad-mint", name: "Emerald Mint", from: "#10b981", to: "#06b6d4" },
+  { id: "grad-cosmic", name: "Cosmic Sky", from: "#6366f1", to: "#ec4899" },
+  { id: "grad-cyber", name: "Cyberpunk", from: "#ec4899", to: "#00ffff" },
+  { id: "grad-lava", name: "Lava Flow", from: "#ef4444", to: "#eab308" },
+  { id: "grad-twilight", name: "Twilight", from: "#8b5cf6", to: "#1e1b4b" },
+  { id: "grad-ice", name: "Ice Crystal", from: "#ffffff", to: "#38bdf8" },
+  { id: "grad-moss", name: "Forest Moss", from: "#a3e635", to: "#15803d" },
+  { id: "grad-candy", name: "Cotton Candy", from: "#93c5fd", to: "#fbcfe8" },
+  { id: "grad-bubblegum", name: "Bubblegum", from: "#f472b6", to: "#22d3ee" },
+  { id: "grad-rainbow", name: "Rainbow", from: "#ff0000", via: "#00ff00", to: "#0000ff" },
+  { id: "grad-fireice", name: "Fire & Ice", from: "#ef4444", to: "#60a5fa" },
+  { id: "grad-lilac", name: "Lilac Dreams", from: "#f5d0fe", to: "#a21caf" },
+  { id: "grad-peach", name: "Peach Sherbet", from: "#ffedd5", to: "#fdba74" },
+  { id: "grad-lights", name: "Northern Lights", from: "#2dd4bf", to: "#a21caf" },
+  { id: "grad-copper", name: "Copper Gold", from: "#b45309", to: "#fbbf24" },
+  { id: "grad-solar", name: "Solar Wind", from: "#f97316", to: "#eab308" },
+  { id: "grad-deepsea", name: "Deep Sea", from: "#0284c7", to: "#030712" },
+  { id: "grad-nebula", name: "Nebula", from: "#e879f9", to: "#4f46e5" },
+  { id: "grad-matcha", name: "Matcha Green", from: "#86efac", to: "#14532d" },
+  { id: "grad-paradise", name: "Paradise", from: "#fde047", to: "#0d9488" },
+  { id: "grad-berry", name: "Berry Blast", from: "#f43f5e", to: "#86198f" },
+  { id: "grad-midnight", name: "Midnight", from: "#000000", to: "#312e81" },
+  { id: "grad-electric", name: "Electric Violet", from: "#d946ef", to: "#2563eb" },
+  { id: "grad-prism", name: "Prism", from: "#ff007f", via: "#ffd700", to: "#00ffff" }
+];
+
+const NEON_COLORS = [
+  { id: "neon-pink", name: "Neon Pink", value: "#ff007f", glowColor: "#ff007f" },
+  { id: "neon-cyan", name: "Neon Cyan", value: "#00ffff", glowColor: "#00ffff" },
+  { id: "neon-lime", name: "Neon Lime", value: "#39ff14", glowColor: "#39ff14" },
+  { id: "neon-gold", name: "Neon Gold", value: "#ffd700", glowColor: "#ffd700" },
+  { id: "neon-purple", name: "Neon Purple", value: "#bc13fe", glowColor: "#bc13fe" },
+  { id: "neon-red", name: "Neon Red", value: "#ff073a", glowColor: "#ff073a" },
+  { id: "neon-orange", name: "Neon Orange", value: "#ff355e", glowColor: "#ff355e" },
+  { id: "neon-violet", name: "Neon Violet", value: "#9d00ff", glowColor: "#9d00ff" },
+  { id: "neon-aqua", name: "Neon Aqua", value: "#00f5ff", glowColor: "#00f5ff" },
+  { id: "neon-green", name: "Neon Green", value: "#00ff00", glowColor: "#00ff00" },
+  { id: "neon-yellow", name: "Neon Yellow", value: "#ffff00", glowColor: "#ffff00" },
+  { id: "neon-coral", name: "Neon Coral", value: "#ff7f50", glowColor: "#ff7f50" },
+  { id: "neon-mint", name: "Neon Mint", value: "#10b981", glowColor: "#10b981" },
+  { id: "neon-ruby", name: "Neon Ruby", value: "#e11d48", glowColor: "#e11d48" },
+  { id: "neon-blue", name: "Neon Blue", value: "#1e40af", glowColor: "#3b82f6" },
+  { id: "neon-electric-blue", name: "Neon Electric Blue", value: "#0070f3", glowColor: "#0070f3" },
+  { id: "neon-magenta", name: "Neon Magenta", value: "#ff00ff", glowColor: "#ff00ff" },
+  { id: "neon-lava", name: "Neon Lava", value: "#ff4500", glowColor: "#ff4500" },
+  { id: "neon-chartreuse", name: "Neon Chartreuse", value: "#7fff00", glowColor: "#7fff00" },
+  { id: "neon-ice", name: "Neon Ice", value: "#e0f2fe", glowColor: "#38bdf8" },
+  { id: "neon-emerald", name: "Neon Emerald", value: "#10b981", glowColor: "#059669" },
+  { id: "neon-hotpink", name: "Neon Hotpink", value: "#ff69b4", glowColor: "#ff69b4" },
+  { id: "neon-electric-indigo", name: "Neon Electric Indigo", value: "#4f46e5", glowColor: "#4f46e5" },
+  { id: "neon-amber", name: "Neon Amber", value: "#fbbf24", glowColor: "#fbbf24" },
+  { id: "neon-peach", name: "Neon Peach", value: "#ffedd5", glowColor: "#fdba74" }
+];
+
+const SHIMMERS = [
+  { id: "shimmer-silver", name: "Silver Shimmer", value: "#ffffff", glowColor: "#cbd5e1" },
+  { id: "shimmer-aurora", name: "Aurora Shimmer", value: "#00ffff", glowColor: "#10b981" },
+  { id: "shimmer-opal", name: "Opal Shimmer", value: "#fbcfe8", glowColor: "#93c5fd" },
+  { id: "shimmer-ruby", name: "Ruby Shimmer", value: "#f43f5e", glowColor: "#be123c" },
+  { id: "shimmer-diamond", name: "Diamond Shimmer", value: "#ffffff", glowColor: "#38bdf8" },
+  { id: "shimmer-amethyst", name: "Amethyst Shimmer", value: "#c084fc", glowColor: "#6b21a8" },
+  { id: "shimmer-gold", name: "Gold Dust Shimmer", value: "#f59e0b", glowColor: "#ef4444" },
+  { id: "shimmer-sapphire", name: "Sapphire Shimmer", value: "#3b82f6", glowColor: "#1d4ed8" },
+  { id: "shimmer-emerald", name: "Emerald Spark Shimmer", value: "#10b981", glowColor: "#064e3b" },
+  { id: "shimmer-cosmic", name: "Cosmic Shimmer", value: "#ff007f", glowColor: "#3b82f6" },
+  { id: "shimmer-grad-sunset", name: "Sunset Shimmer", value: "gradient", from: "#ff4500", to: "#ff007f", glowColor: "#ff007f" },
+  { id: "shimmer-grad-cyber", name: "Cyber Shimmer", value: "gradient", from: "#ec4899", to: "#00ffff", glowColor: "#00ffff" },
+  { id: "shimmer-grad-lights", name: "Lights Shimmer", value: "gradient", from: "#2dd4bf", to: "#a21caf", glowColor: "#a21caf" },
+  { id: "shimmer-grad-sun", name: "Sol Shimmer", value: "gradient", from: "#ffd700", to: "#f97316", glowColor: "#f97316" },
+  { id: "shimmer-grad-royal", name: "Royal Shimmer", value: "gradient", from: "#a855f7", to: "#3b82f6", glowColor: "#3b82f6" },
+  { id: "shimmer-grad-mint", name: "Mint Shimmer", value: "gradient", from: "#10b981", to: "#06b6d4", glowColor: "#06b6d4" },
+  { id: "shimmer-neon-gold", name: "Glitz Shimmer", value: "#ffd700", glowColor: "#ffffff" },
+  { id: "shimmer-neon-purple", name: "Electro Shimmer", value: "#bc13fe", glowColor: "#ffffff" },
+  { id: "shimmer-hotpink", name: "Pulse Shimmer", value: "#ff69b4", glowColor: "#ff007f" },
+  { id: "shimmer-teal", name: "Deep Reef Shimmer", value: "#0d9488", glowColor: "#2dd4bf" }
+];
+
 const BOT_USER: OnlineUser = {
   id: "musicvibe-bot-system-id",
   username: "System",
@@ -103,6 +271,14 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  
+  // Font & Icon Control Customization States
+  const [isFontControlMenuOpen, setIsFontControlMenuOpen] = useState(false);
+  const [showFontFamilyModal, setShowFontFamilyModal] = useState(false);
+  const [showIconColorModal, setShowIconColorModal] = useState(false);
+  const [fontFamily, setFontFamily] = useState<string>("Default");
+  const [selectedIconStyle, setSelectedIconStyle] = useState<any>({ id: 'default', type: 'default' });
+  const [fontSizeScale, setFontSizeScale] = useState<number>(100);
   
   // Friend & Status Requests State
   const [receivedFriendRequests, setReceivedFriendRequests] = useState<any[]>([]);
@@ -818,6 +994,129 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
       unsubRelReqs();
     };
   }, [user.id]);
+
+  // Dynamic Font & Icon Style custom helpers
+  const loadGoogleFont = (fontName: string) => {
+    if (!fontName || fontName === 'Default') {
+      document.documentElement.style.removeProperty('--app-font-family');
+      return;
+    }
+    const fontId = `google-font-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+    if (!document.getElementById(fontId)) {
+      const link = document.createElement('link');
+      link.id = fontId;
+      link.rel = 'stylesheet';
+      const formattedName = fontName.replace(/\s+/g, '+');
+      link.href = `https://fonts.googleapis.com/css2?family=${formattedName}:wght@300;400;500;700;900&display=swap`;
+      document.head.appendChild(link);
+    }
+    document.documentElement.style.setProperty('--app-font-family', `"${fontName}", sans-serif`);
+  };
+
+  const applyIconStyle = (style: any) => {
+    if (!style || style.id === 'default') {
+      document.documentElement.style.removeProperty('--app-icon-stroke');
+      document.documentElement.style.removeProperty('--app-icon-filter');
+      document.documentElement.style.removeProperty('--app-icon-animation');
+      return;
+    }
+
+    if (style.type === 'solid') {
+      document.documentElement.style.setProperty('--app-icon-stroke', style.value);
+      document.documentElement.style.removeProperty('--app-icon-filter');
+      document.documentElement.style.removeProperty('--app-icon-animation');
+    } else if (style.type === 'gradient') {
+      document.documentElement.style.setProperty('--app-icon-stroke', `url(#icon-grad-${style.id})`);
+      document.documentElement.style.removeProperty('--app-icon-filter');
+      document.documentElement.style.removeProperty('--app-icon-animation');
+    } else if (style.type === 'neon') {
+      document.documentElement.style.setProperty('--app-icon-stroke', style.value);
+      document.documentElement.style.setProperty('--app-icon-filter', `drop-shadow(0 0 2px ${style.glowColor}) drop-shadow(0 0 5px ${style.glowColor})`);
+      document.documentElement.style.removeProperty('--app-icon-animation');
+    } else if (style.type === 'shimmer') {
+      if (style.id.startsWith('shimmer-grad-')) {
+        document.documentElement.style.setProperty('--app-icon-stroke', `url(#icon-grad-${style.id})`);
+      } else {
+        document.documentElement.style.setProperty('--app-icon-stroke', style.value);
+      }
+      document.documentElement.style.setProperty('--app-icon-filter', `drop-shadow(0 0 3px ${style.glowColor || '#ffffff'})`);
+      document.documentElement.style.setProperty('--app-icon-animation', 'icon-shimmer-pulse 2s infinite ease-in-out');
+    }
+  };
+
+  const handleZoomIn = () => {
+    setFontSizeScale(prev => {
+      const next = Math.min(prev + 10, 150);
+      localStorage.setItem('app-font-size-scale', next.toString());
+      document.documentElement.style.fontSize = `${next}%`;
+      return next;
+    });
+  };
+
+  const handleZoomOut = () => {
+    setFontSizeScale(prev => {
+      const next = Math.max(prev - 10, 70);
+      localStorage.setItem('app-font-size-scale', next.toString());
+      document.documentElement.style.fontSize = `${next}%`;
+      return next;
+    });
+  };
+
+  const handleResetFont = () => {
+    setFontFamily('Default');
+    localStorage.removeItem('app-font-family');
+    document.documentElement.style.removeProperty('--app-font-family');
+    setFontSizeScale(100);
+    localStorage.setItem('app-font-size-scale', '100');
+    document.documentElement.style.fontSize = '100%';
+  };
+
+  const handleResetIcons = () => {
+    setSelectedIconStyle({ id: 'default', type: 'default' });
+    localStorage.removeItem('app-icon-style');
+    document.documentElement.style.removeProperty('--app-icon-stroke');
+    document.documentElement.style.removeProperty('--app-icon-filter');
+    document.documentElement.style.removeProperty('--app-icon-animation');
+  };
+
+  const handleResetAll = () => {
+    handleResetFont();
+    handleResetIcons();
+  };
+
+  // Customization Startup Loader Effect
+  useEffect(() => {
+    try {
+      const savedScale = localStorage.getItem('app-font-size-scale');
+      if (savedScale) {
+        setFontSizeScale(Number(savedScale));
+        document.documentElement.style.fontSize = `${savedScale}%`;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      const savedFont = localStorage.getItem('app-font-family');
+      if (savedFont) {
+        setFontFamily(savedFont);
+        loadGoogleFont(savedFont);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      const savedIconStyle = localStorage.getItem('app-icon-style');
+      if (savedIconStyle) {
+        const style = JSON.parse(savedIconStyle);
+        setSelectedIconStyle(style);
+        applyIconStyle(style);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const mappedFriendRequests = useMemo(() => {
     return receivedFriendRequests.map(req => {
@@ -2248,6 +2547,94 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
           
           {/* Action icon triggers (Only Online Panel toggle remains) */}
           <div className="flex items-center gap-2">
+            {/* Font Control Button */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsFontControlMenuOpen(!isFontControlMenuOpen)}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer relative font-sans font-black text-sm flex items-center justify-center w-8 h-8 ${
+                  isFontControlMenuOpen 
+                    ? "bg-purple-900/30" 
+                    : "text-purple-400 hover:text-white hover:bg-purple-950/20"
+                }`}
+                style={selectedIconStyle && selectedIconStyle.id !== 'default' ? {
+                  color: (selectedIconStyle.type === 'gradient' || (selectedIconStyle.type === 'shimmer' && selectedIconStyle.value === 'gradient')) ? 'transparent' : selectedIconStyle.value,
+                  backgroundImage: (selectedIconStyle.type === 'gradient' || (selectedIconStyle.type === 'shimmer' && selectedIconStyle.value === 'gradient')) ? `linear-gradient(135deg, ${selectedIconStyle.from}, ${selectedIconStyle.to})` : undefined,
+                  WebkitBackgroundClip: (selectedIconStyle.type === 'gradient' || (selectedIconStyle.type === 'shimmer' && selectedIconStyle.value === 'gradient')) ? 'text' : undefined,
+                  backgroundClip: (selectedIconStyle.type === 'gradient' || (selectedIconStyle.type === 'shimmer' && selectedIconStyle.value === 'gradient')) ? 'text' : undefined,
+                  filter: selectedIconStyle.glowColor ? `drop-shadow(0 0 3px ${selectedIconStyle.glowColor})` : undefined,
+                } : undefined}
+                title="Font & Icon Customization (A)"
+              >
+                A
+              </button>
+
+              {isFontControlMenuOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div className="fixed inset-0 z-40" onClick={() => setIsFontControlMenuOpen(false)} />
+                  
+                  {/* Font control dropdown */}
+                  <div className="absolute right-0 mt-2 w-72 bg-[#1b1924] border border-purple-500/30 shadow-2xl z-50 rounded-lg p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                      <span className="font-black text-lg text-white">A</span>
+                      <h4 className="text-xs uppercase font-black tracking-widest text-white">
+                        Font control
+                      </h4>
+                    </div>
+
+                    {/* Grid of buttons matching the layout in image 1 */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={() => handleZoomIn()}
+                        className="py-2.5 px-3 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 text-center"
+                      >
+                        + Zoom in
+                      </button>
+                      <button 
+                        onClick={() => handleZoomOut()}
+                        className="py-2.5 px-3 rounded-md bg-[#33313d] hover:bg-[#3e3c4a] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 text-center"
+                      >
+                        — Zoom out
+                      </button>
+                      <button 
+                        onClick={() => setShowFontFamilyModal(true)}
+                        className="py-2.5 px-3 rounded-md bg-[#0284c7] hover:bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 text-center"
+                      >
+                        A Font family
+                      </button>
+                      <button 
+                        onClick={() => setShowIconColorModal(true)}
+                        className="py-2.5 px-3 rounded-md bg-[#0284c7] hover:bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 text-center"
+                      >
+                        ⭐ Icon colors
+                      </button>
+                      <button 
+                        onClick={() => handleResetIcons()}
+                        className="py-2.5 px-3 rounded-md bg-[#33313d] hover:bg-[#3e3c4a] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 text-center"
+                      >
+                        🔄 Reset icons
+                      </button>
+                      <button 
+                        onClick={() => handleResetFont()}
+                        className="py-2.5 px-3 rounded-md bg-[#7c3aed] hover:bg-[#8b5cf6] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 text-center"
+                      >
+                        🔄 Reset font
+                      </button>
+                    </div>
+
+                    <div className="border-t border-white/5 pt-3">
+                      <button 
+                        onClick={() => handleResetAll()}
+                        className="w-full py-2.5 px-3 rounded-md bg-[#33313d] hover:bg-[#3e3c4a] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 text-center"
+                      >
+                        🔄 Reset all
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* Notification Button */}
             <button 
               onClick={() => {
@@ -2776,7 +3163,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
         >
           {activeTab === "chat" ? (
             <>
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="flex-1 overflow-y-auto custom-scrollbar chat-messages-container">
                 {/* Permanent Global Announcements */}
                 {announcements.map((ann) => (
                   <div key={ann.id} className="bg-gradient-to-r from-purple-950/40 via-amber-950/40 to-purple-950/40 border-b border-amber-500/20 px-5 py-3 flex items-center justify-between gap-3">
@@ -4746,6 +5133,234 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
           }}
         />
       )}
+
+      {/* Font Family Selection Modal */}
+      {showFontFamilyModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#161226] border border-purple-500/30 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 text-left">
+            {/* Header */}
+            <div className="p-4 border-b border-purple-950/40 flex items-center justify-between bg-purple-950/20">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <Type className="w-4 h-4 text-purple-400" />
+                Choose Font Family
+              </h3>
+              <button 
+                onClick={() => setShowFontFamilyModal(false)}
+                className="p-1.5 text-purple-400 hover:text-white rounded-lg hover:bg-white/5 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content list */}
+            <div className="p-4 flex-1 overflow-y-auto max-h-[350px] custom-scrollbar space-y-2">
+              <p className="text-[10px] text-purple-400 uppercase tracking-wider font-bold mb-3">
+                Select a font to apply globally (except main chat messages)
+              </p>
+              
+              {ALL_FONTS.map((font) => {
+                const isSelected = fontFamily === font;
+                return (
+                  <button
+                    key={font}
+                    onClick={() => {
+                      setFontFamily(font);
+                      loadGoogleFont(font);
+                      localStorage.setItem('app-font-family', font);
+                    }}
+                    className={`w-full p-3 rounded-xl flex items-center justify-between border transition-all text-left group cursor-pointer ${
+                      isSelected 
+                        ? "bg-[#7c3aed]/25 border-[#7c3aed] text-white" 
+                        : "bg-[#0d0a1c]/60 border-purple-950/40 text-purple-200 hover:bg-[#120e24] hover:border-purple-800/40 hover:text-white"
+                    }`}
+                    style={{ fontFamily: font === 'Default' ? undefined : font }}
+                    onMouseEnter={() => font !== 'Default' && loadGoogleFont(font)}
+                  >
+                    <span className="text-sm font-bold">{font}</span>
+                    <span className="text-xs text-purple-400/80 group-hover:text-purple-300 transition-colors">
+                      {isSelected ? "Active" : "Preview"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-purple-950/40 bg-purple-950/10 flex gap-2">
+              <button
+                onClick={() => {
+                  handleResetFont();
+                  setShowFontFamilyModal(false);
+                }}
+                className="flex-1 py-2 rounded-lg bg-[#33313d] hover:bg-[#3e3c4a] text-white text-xs font-bold transition-all"
+              >
+                Reset Default
+              </button>
+              <button
+                onClick={() => setShowFontFamilyModal(false)}
+                className="flex-1 py-2 rounded-lg bg-[#7c3aed] hover:bg-[#8b5cf6] text-white text-xs font-bold transition-all"
+              >
+                Save & Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Icon Color Customizer Modal */}
+      {showIconColorModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#161226] border border-purple-500/30 w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 text-left">
+            {/* Header */}
+            <div className="p-4 border-b border-purple-950/40 flex items-center justify-between bg-purple-950/20">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <Star className="w-4 h-4 text-yellow-400" />
+                Icon Color Customizer
+              </h3>
+              <button 
+                onClick={() => setShowIconColorModal(false)}
+                className="p-1.5 text-purple-400 hover:text-white rounded-lg hover:bg-white/5 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Tab Navigation */}
+            <IconColorModalContent 
+              selectedIconStyle={selectedIconStyle}
+              setSelectedIconStyle={setSelectedIconStyle}
+              applyIconStyle={applyIconStyle}
+              onClose={() => setShowIconColorModal(false)}
+              handleResetIcons={handleResetIcons}
+            />
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// Subcomponent for Icon Color Modal Selection Content
+function IconColorModalContent({ 
+  selectedIconStyle, 
+  setSelectedIconStyle, 
+  applyIconStyle, 
+  onClose,
+  handleResetIcons 
+}: any) {
+  const [activeTab, setActiveTab] = useState<'solid' | 'gradient' | 'neon' | 'shimmer'>('solid');
+
+  const getStyleList = () => {
+    switch (activeTab) {
+      case 'solid': return SOLID_COLORS.map(c => ({ ...c, type: 'solid' }));
+      case 'gradient': return GRADIENTS.map(c => ({ ...c, type: 'gradient' }));
+      case 'neon': return NEON_COLORS.map(c => ({ ...c, type: 'neon' }));
+      case 'shimmer': return SHIMMERS.map(c => ({ ...c, type: 'shimmer' }));
+    }
+  };
+
+  const handleSelectStyle = (style: any) => {
+    setSelectedIconStyle(style);
+    applyIconStyle(style);
+  };
+
+  const handleSave = () => {
+    localStorage.setItem('app-icon-style', JSON.stringify(selectedIconStyle));
+    onClose();
+  };
+
+  return (
+    <>
+      {/* Tabs */}
+      <div className="flex border-b border-purple-500/10 bg-[#110d21]">
+        {(['solid', 'gradient', 'neon', 'shimmer'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+              activeTab === tab 
+                ? "border-purple-500 text-white bg-purple-950/10" 
+                : "border-transparent text-purple-400 hover:text-white hover:bg-white/2"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Grid of colors */}
+      <div className="p-6 overflow-y-auto flex-1 custom-scrollbar max-h-[350px]">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {getStyleList().map((style) => {
+            const isSelected = selectedIconStyle?.id === style.id;
+            
+            // Generate visual background/glow for preview box
+            let previewStyle: React.CSSProperties = {};
+            if (style.type === 'solid') {
+              previewStyle = { backgroundColor: style.value };
+            } else if (style.type === 'gradient' || (style.type === 'shimmer' && style.value === 'gradient')) {
+              const stopColors = style.via 
+                ? `${style.from}, ${style.via}, ${style.to}` 
+                : `${style.from}, ${style.to}`;
+              previewStyle = { background: `linear-gradient(135deg, ${stopColors})` };
+            } else if (style.type === 'neon') {
+              previewStyle = { 
+                backgroundColor: style.value,
+                boxShadow: `0 0 10px ${style.glowColor}`
+              };
+            } else if (style.type === 'shimmer') {
+              previewStyle = { 
+                backgroundColor: style.value !== 'gradient' ? style.value : undefined,
+                background: style.value === 'gradient' ? `linear-gradient(135deg, ${style.from}, ${style.to})` : undefined,
+                boxShadow: `0 0 8px ${style.glowColor}`
+              };
+            }
+
+            return (
+              <button
+                key={style.id}
+                onClick={() => handleSelectStyle(style)}
+                className={`p-3.5 rounded-xl border flex flex-col items-center gap-3 transition-all cursor-pointer select-none active:scale-95 group ${
+                  isSelected 
+                    ? "bg-[#7c3aed]/10 border-[#7c3aed] text-white shadow-lg" 
+                    : "bg-[#0d0a1c]/60 border-purple-950/40 text-purple-300 hover:bg-[#120e24] hover:border-purple-800/40 hover:text-white"
+                }`}
+              >
+                {/* Visual circle bubble */}
+                <div 
+                  className={`w-10 h-10 rounded-full border border-white/10 transition-transform duration-200 group-hover:scale-110 flex items-center justify-center`}
+                  style={previewStyle}
+                >
+                  <Star className="w-4 h-4 text-white/40 group-hover:text-white/80 transition-colors ignore-custom-icons animate-pulse" />
+                </div>
+
+                <span className="text-[11px] font-bold text-center leading-tight truncate w-full">
+                  {style.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-purple-950/40 bg-purple-950/10 flex gap-2">
+        <button
+          onClick={() => {
+            handleResetIcons();
+            onClose();
+          }}
+          className="flex-1 py-2 rounded-lg bg-[#33313d] hover:bg-[#3e3c4a] text-white text-xs font-bold transition-all cursor-pointer"
+        >
+          Reset Default
+        </button>
+        <button
+          onClick={handleSave}
+          className="flex-1 py-2 rounded-lg bg-[#7c3aed] hover:bg-[#8b5cf6] text-white text-xs font-bold transition-all cursor-pointer"
+        >
+          Save & Apply
+        </button>
+      </div>
+    </>
   );
 }

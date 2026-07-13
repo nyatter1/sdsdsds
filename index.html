@@ -7,6 +7,50 @@
     <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
   </head>
   <body>
+    <!-- Global SVG Gradient Definitions for Custom Icon Colors -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none;" aria-hidden="true">
+      <defs>
+        <!-- Gradients -->
+        <linearGradient id="icon-grad-grad-sunset" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff4500" /><stop offset="100%" stop-color="#ff007f" /></linearGradient>
+        <linearGradient id="icon-grad-grad-ocean" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00ffff" /><stop offset="100%" stop-color="#0055ff" /></linearGradient>
+        <linearGradient id="icon-grad-grad-laser" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#39ff14" /><stop offset="100%" stop-color="#bc13fe" /></linearGradient>
+        <linearGradient id="icon-grad-grad-royal" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#a855f7" /><stop offset="100%" stop-color="#3b82f6" /></linearGradient>
+        <linearGradient id="icon-grad-grad-rose" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f43f5e" /><stop offset="100%" stop-color="#ec4899" /></linearGradient>
+        <linearGradient id="icon-grad-grad-sun" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffd700" /><stop offset="100%" stop-color="#f97316" /></linearGradient>
+        <linearGradient id="icon-grad-grad-mint" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#10b981" /><stop offset="100%" stop-color="#06b6d4" /></linearGradient>
+        <linearGradient id="icon-grad-grad-cosmic" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6366f1" /><stop offset="100%" stop-color="#ec4899" /></linearGradient>
+        <linearGradient id="icon-grad-grad-cyber" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ec4899" /><stop offset="100%" stop-color="#00ffff" /></linearGradient>
+        <linearGradient id="icon-grad-grad-lava" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ef4444" /><stop offset="100%" stop-color="#eab308" /></linearGradient>
+        <linearGradient id="icon-grad-grad-twilight" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8b5cf6" /><stop offset="100%" stop-color="#1e1b4b" /></linearGradient>
+        <linearGradient id="icon-grad-grad-ice" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffffff" /><stop offset="100%" stop-color="#38bdf8" /></linearGradient>
+        <linearGradient id="icon-grad-grad-moss" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#a3e635" /><stop offset="100%" stop-color="#15803d" /></linearGradient>
+        <linearGradient id="icon-grad-grad-candy" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#93c5fd" /><stop offset="100%" stop-color="#fbcfe8" /></linearGradient>
+        <linearGradient id="icon-grad-grad-bubblegum" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f472b6" /><stop offset="100%" stop-color="#22d3ee" /></linearGradient>
+        <linearGradient id="icon-grad-grad-rainbow" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff0000" /><stop offset="50%" stop-color="#00ff00" /><stop offset="100%" stop-color="#0000ff" /></linearGradient>
+        <linearGradient id="icon-grad-grad-fireice" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ef4444" /><stop offset="100%" stop-color="#60a5fa" /></linearGradient>
+        <linearGradient id="icon-grad-grad-lilac" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f5d0fe" /><stop offset="100%" stop-color="#a21caf" /></linearGradient>
+        <linearGradient id="icon-grad-grad-peach" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffedd5" /><stop offset="100%" stop-color="#fdba74" /></linearGradient>
+        <linearGradient id="icon-grad-grad-lights" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2dd4bf" /><stop offset="100%" stop-color="#a21caf" /></linearGradient>
+        <linearGradient id="icon-grad-grad-copper" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#b45309" /><stop offset="100%" stop-color="#fbbf24" /></linearGradient>
+        <linearGradient id="icon-grad-grad-solar" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316" /><stop offset="100%" stop-color="#eab308" /></linearGradient>
+        <linearGradient id="icon-grad-grad-deepsea" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0284c7" /><stop offset="100%" stop-color="#030712" /></linearGradient>
+        <linearGradient id="icon-grad-grad-nebula" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e879f9" /><stop offset="100%" stop-color="#4f46e5" /></linearGradient>
+        <linearGradient id="icon-grad-grad-matcha" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#86efac" /><stop offset="100%" stop-color="#14532d" /></linearGradient>
+        <linearGradient id="icon-grad-grad-paradise" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fde047" /><stop offset="100%" stop-color="#0d9488" /></linearGradient>
+        <linearGradient id="icon-grad-grad-berry" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f43f5e" /><stop offset="100%" stop-color="#86198f" /></linearGradient>
+        <linearGradient id="icon-grad-grad-midnight" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#000000" /><stop offset="100%" stop-color="#312e81" /></linearGradient>
+        <linearGradient id="icon-grad-grad-electric" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d946ef" /><stop offset="100%" stop-color="#2563eb" /></linearGradient>
+        <linearGradient id="icon-grad-grad-prism" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff007f" /><stop offset="50%" stop-color="#ffd700" /><stop offset="100%" stop-color="#00ffff" /></linearGradient>
+
+        <!-- Shimmers -->
+        <linearGradient id="icon-grad-shimmer-grad-sunset" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff4500" /><stop offset="100%" stop-color="#ff007f" /></linearGradient>
+        <linearGradient id="icon-grad-shimmer-grad-cyber" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ec4899" /><stop offset="100%" stop-color="#00ffff" /></linearGradient>
+        <linearGradient id="icon-grad-shimmer-grad-lights" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2dd4bf" /><stop offset="100%" stop-color="#a21caf" /></linearGradient>
+        <linearGradient id="icon-grad-shimmer-grad-sun" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffd700" /><stop offset="100%" stop-color="#f97316" /></linearGradient>
+        <linearGradient id="icon-grad-shimmer-grad-royal" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#a855f7" /><stop offset="100%" stop-color="#3b82f6" /></linearGradient>
+        <linearGradient id="icon-grad-shimmer-grad-mint" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#10b981" /><stop offset="100%" stop-color="#06b6d4" /></linearGradient>
+      </defs>
+    </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
