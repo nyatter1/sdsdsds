@@ -5,12 +5,12 @@ import {
   MoreHorizontal, EyeOff, Trash2, Reply, Volume2, VolumeX,
   Bell, ShieldCheck, Sparkles, AlertTriangle, Eye, Check, Heart, Edit2, Camera,
   Palette, CreditCard, Star, Lock, Unlock, Coins, Hand, Type, Newspaper,
-  Vote, Gift, ArrowRightLeft, Dices, UserCog, Info, Ban
+  Vote, Gift, ArrowRightLeft, Dices, UserCog, Info, Ban, UserPlus
 } from "lucide-react";
 import { UserProfile, Message, OnlineUser, RANKS_INFO, mapDbRankToUserRank, UserRank, getLevelFromXp, Story } from "../types";
 import ProfileModal, { getProfileBorderStyle } from "./ProfileModal";
 import { supabase, getSyncedDate, firestore } from "../lib/supabase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { uploadImageToStorage } from "../lib/storage";
 
 // Feature Modals
@@ -103,6 +103,11 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  
+  // Friend & Status Requests State
+  const [receivedFriendRequests, setReceivedFriendRequests] = useState<any[]>([]);
+  const [receivedStatusRequests, setReceivedStatusRequests] = useState<any[]>([]);
+  const [isRequestsMenuOpen, setIsRequestsMenuOpen] = useState(false);
   const [customRanks, setCustomRanks] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -792,14 +797,113 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     }
   };
 
+  // Listen to received friend and relationship/status requests
+  useEffect(() => {
+    if (!user || !user.id) return;
+
+    const unsubFriendReqs = onSnapshot(collection(firestore, "friend_requests"), (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      const pendingReqs = docs.filter(r => r.receiver_id === user.id && r.status === "pending");
+      setReceivedFriendRequests(pendingReqs);
+    });
+
+    const unsubRelReqs = onSnapshot(collection(firestore, "relationship_requests"), (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      const pendingReqs = docs.filter(r => r.receiver_id === user.id && r.status === "pending");
+      setReceivedStatusRequests(pendingReqs);
+    });
+
+    return () => {
+      unsubFriendReqs();
+      unsubRelReqs();
+    };
+  }, [user.id]);
+
+  const mappedFriendRequests = useMemo(() => {
+    return receivedFriendRequests.map(req => {
+      const sender = allProfiles.find(p => p.id === req.sender_id);
+      return {
+        ...req,
+        sender
+      };
+    }).filter(req => req.sender) as any[];
+  }, [receivedFriendRequests, allProfiles]);
+
+  const mappedStatusRequests = useMemo(() => {
+    return receivedStatusRequests.map(req => {
+      const sender = allProfiles.find(p => p.id === req.sender_id);
+      return {
+        ...req,
+        sender
+      };
+    }).filter(req => req.sender) as any[];
+  }, [receivedStatusRequests, allProfiles]);
+
+  const totalRequestsCount = useMemo(() => {
+    return mappedFriendRequests.length + mappedStatusRequests.length;
+  }, [mappedFriendRequests, mappedStatusRequests]);
+
+  const acceptFriendRequest = async (requestId: string, senderId: string) => {
+    try {
+      const friendshipId = `friend_${senderId}_${user.id}`;
+      await setDoc(doc(firestore, "friends", friendshipId), {
+        id: friendshipId,
+        user_id_1: senderId,
+        user_id_2: user.id,
+        created_at: new Date().toISOString()
+      });
+      await deleteDoc(doc(firestore, "friend_requests", requestId));
+      alert("Friend request accepted!");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const declineFriendRequest = async (requestId: string) => {
+    try {
+      await deleteDoc(doc(firestore, "friend_requests", requestId));
+      alert("Friend request declined.");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const acceptRelationshipRequest = async (requestId: string, senderId: string, type: string) => {
+    try {
+      const relId = `rel_${senderId}_${user.id}`;
+      await setDoc(doc(firestore, "relationships", relId), {
+        id: relId,
+        user_id_1: senderId,
+        user_id_2: user.id,
+        status: type,
+        created_at: new Date().toISOString()
+      });
+      await deleteDoc(doc(firestore, "relationship_requests", requestId));
+      alert("Relationship request accepted!");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const declineRelationshipRequest = async (requestId: string) => {
+    try {
+      await deleteDoc(doc(firestore, "relationship_requests", requestId));
+      alert("Relationship request declined.");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchOnlineUsers();
     fetchFriends();
+    fetchAllProfiles();
 
     const friendsChannel = supabase
       .channel('friends-realtime-chatroom')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'friends' }, () => {
         fetchFriends();
+        fetchAllProfiles();
       })
       .subscribe();
     
@@ -807,6 +911,7 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
     const profileChannel = supabase
       .channel('profiles-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
+        fetchAllProfiles();
         if (payload.eventType === 'INSERT' && payload.new) {
           const newUser = mapDbProfileToOnlineUser(payload.new);
           setOnlineUsers(prev => {
@@ -2161,6 +2266,145 @@ export default function ChatRoom({ user, onLogout, onUpdateUser }: ChatRoomProps
                 <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse border border-[#0d0a1c]" />
               )}
             </button>
+
+            {/* Friend & Status Requests Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsRequestsMenuOpen(!isRequestsMenuOpen)}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer relative ${
+                  isRequestsMenuOpen 
+                    ? "text-purple-300 bg-purple-900/30" 
+                    : "text-purple-400 hover:text-white hover:bg-purple-950/20"
+                }`}
+                title="Friend & Status Requests"
+              >
+                <UserPlus className="w-5 h-5" />
+                {totalRequestsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white border border-[#0d0a1c] animate-pulse">
+                    {totalRequestsCount}
+                  </span>
+                )}
+              </button>
+
+              {isRequestsMenuOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div className="fixed inset-0 z-40" onClick={() => setIsRequestsMenuOpen(false)} />
+                  
+                  {/* Dropdown container */}
+                  <div className="absolute right-0 mt-2 w-72 bg-[#161226] border border-purple-500/30 shadow-2xl z-50 rounded-none flex flex-col max-h-96 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="p-3 border-b border-purple-950/40 bg-purple-950/10 flex items-center justify-between">
+                      <h4 className="text-[11px] font-black text-purple-300 uppercase tracking-widest flex items-center gap-1.5">
+                        <UserPlus className="w-3.5 h-3.5 text-purple-400" /> Requests
+                      </h4>
+                      {totalRequestsCount > 0 && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-200 uppercase font-bold">
+                          {totalRequestsCount} pending
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto max-h-80 custom-scrollbar p-2 space-y-3">
+                      {totalRequestsCount === 0 ? (
+                        <div className="text-center py-6 text-purple-400/50 text-[11px] italic">
+                          No pending requests
+                        </div>
+                      ) : (
+                        <>
+                          {/* Friend Requests Section */}
+                          {mappedFriendRequests.length > 0 && (
+                            <div className="space-y-1.5">
+                              <p className="text-[9px] text-purple-500 uppercase font-bold tracking-wider px-1">
+                                Friend Requests ({mappedFriendRequests.length})
+                              </p>
+                              {mappedFriendRequests.map((req) => (
+                                <div key={req.id} className="p-2 bg-[#120e24]/60 border border-purple-950/20 flex flex-col gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-7 h-7 rounded-none bg-purple-950 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
+                                      <img src={req.sender.pfp} alt={req.sender.username} className="w-full h-full rounded-none object-cover" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-bold text-white truncate leading-tight">
+                                        {req.sender.username}
+                                      </p>
+                                      <p className="text-[9px] text-purple-400">Wants to add you as friend</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => acceptFriendRequest(req.id, req.sender_id)}
+                                      className="flex-1 py-1 text-[9px] font-bold uppercase rounded bg-emerald-900/40 border border-emerald-800/30 text-emerald-200 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      onClick={() => declineFriendRequest(req.id)}
+                                      className="flex-1 py-1 text-[9px] font-bold uppercase rounded bg-rose-900/40 border border-rose-800/30 text-rose-200 hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
+                                    >
+                                      Decline
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Status Requests Section */}
+                          {mappedStatusRequests.length > 0 && (
+                            <div className="space-y-1.5 pt-1 border-t border-purple-950/20">
+                              <p className="text-[9px] text-purple-500 uppercase font-bold tracking-wider px-1">
+                                Status Requests ({mappedStatusRequests.length})
+                              </p>
+                              {mappedStatusRequests.map((req) => (
+                                <div key={req.id} className="p-2 bg-[#120e24]/60 border border-purple-950/20 flex flex-col gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-7 h-7 rounded-none bg-purple-950 p-0.5 border border-purple-800/20 overflow-hidden shrink-0">
+                                      <img src={req.sender.pfp} alt={req.sender.username} className="w-full h-full rounded-none object-cover" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-bold text-white truncate leading-tight">
+                                        {req.sender.username}
+                                      </p>
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <span className={`text-[8px] px-1 py-0.2 rounded font-black uppercase ${
+                                          req.relationship_type === "Married" 
+                                            ? "bg-amber-950/40 border border-yellow-500/20 text-yellow-400" 
+                                            : req.relationship_type === "Couple"
+                                            ? "bg-pink-950/40 border border-pink-500/20 text-pink-400"
+                                            : req.relationship_type === "Best Friend"
+                                            ? "bg-violet-950/40 border border-violet-500/20 text-violet-400"
+                                            : "bg-emerald-950/40 border border-emerald-500/20 text-emerald-400"
+                                        }`}>
+                                          {req.relationship_type === "Married" ? "💍 Married" : req.relationship_type === "Couple" ? "💖 Couple" : req.relationship_type === "Best Friend" ? "🌟 Best Friend" : "✨ Friend"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => acceptRelationshipRequest(req.id, req.sender_id, req.relationship_type)}
+                                      className="flex-1 py-1 text-[9px] font-bold uppercase rounded bg-emerald-900/40 border border-emerald-800/30 text-emerald-200 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      onClick={() => declineRelationshipRequest(req.id)}
+                                      className="flex-1 py-1 text-[9px] font-bold uppercase rounded bg-rose-900/40 border border-rose-800/30 text-rose-200 hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
+                                    >
+                                      Decline
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Admin Panel Button (restricted to Founder and above or Devs) */}
             {(() => {
